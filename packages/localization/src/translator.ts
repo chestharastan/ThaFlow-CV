@@ -1,6 +1,6 @@
 import type { CVLanguage } from "@thaflow/cv-core";
-import { en } from "./messages/en/index";
-import { km } from "./messages/km/index";
+import { en } from "./messages/en";
+import { km } from "./messages/km";
 
 export type MessageKey = keyof typeof en;
 export type Messages = Record<MessageKey, string>;

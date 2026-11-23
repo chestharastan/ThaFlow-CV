@@ -3,94 +3,29 @@
 @source "../components";
 @source "../lib";
 
-/*
- * ThaFlow CV design tokens.
- *
- * The interface is text on white. Everything is drawn from one neutral scale
- * (ink → paper) plus a single brand colour. Use these tokens only: no other
- * Tailwind palette colours (slate, blue, emerald, ...) anywhere in the app.
- *
- *   text-ink        primary text            bg-paper     page background (white)
- *   text-ink-soft   secondary text          bg-surface   quiet fill (hover, wells)
- *   text-muted      labels, captions        border-line  hairlines, input borders
- *   text-faint      placeholders, disabled  border-line-strong  emphasised borders
- *   bg-brand / text-on-brand   the one filled element per screen (primary action)
- *   text-danger / bg-danger-soft   errors only
- *   text-warn  / bg-warn-soft      warnings only
- *
- * To apply the official ThaFlow brand colour, change --color-brand (and
- * --color-brand-hover / --color-on-brand) below. Nothing else needs to change.
- */
 @theme {
-  --color-ink: #0a0a0a;
-  --color-ink-soft: #404040;
-  --color-muted: #737373;
-  --color-faint: #a3a3a3;
-  --color-line: #e5e5e5;
-  --color-line-strong: #c4c4c4;
-  --color-surface: #f6f6f6;
-  --color-paper: #ffffff;
-
-  --color-brand: #0a0a0a;
-  --color-brand-hover: #262626;
-  --color-on-brand: #ffffff;
-
-  --color-danger: #b42318;
-  --color-danger-soft: #fef3f2;
-  --color-warn: #8a5300;
-  --color-warn-soft: #fff8eb;
-
-  --font-sans: "Inter Variable", "Kantumruy Pro", "Noto Sans Khmer", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-
-  --animate-enter: enter 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  @keyframes enter {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
+  --color-brand-50: #eef4ff;
+  --color-brand-200: #c3d5fe;
+  --color-brand-300: #9db9fc;
+  --color-brand-500: #3b6cf0;
+  --color-brand-600: #2854d8;
+  --color-brand-700: #2143ae;
+  --font-sans: "Kantumruy Pro", "Noto Sans Khmer", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 html {
-  background: var(--color-paper);
-  color: var(--color-ink);
-  -webkit-text-size-adjust: 100%;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
-body {
-  font-feature-settings: "cv11", "ss01";
-}
-
-/* Khmer stacks marks above and below the baseline: more leading, and never any letter-spacing,
-   which would pull clusters apart. Applies to the whole UI when it is in Khmer. */
+/* Khmer UI text needs extra leading so subscripts and vowels are not clipped. */
 html:lang(km) body {
   line-height: 1.75;
 }
-html:lang(km) * {
-  letter-spacing: 0 !important;
-}
 
 :focus-visible {
-  outline: 2px solid var(--color-ink);
-  outline-offset: 2px;
-}
-
-::selection {
-  background: var(--color-ink);
-  color: var(--color-paper);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 1px;
 }
 
 .print-only {

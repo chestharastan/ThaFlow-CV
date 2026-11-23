@@ -60,7 +60,7 @@ export default function HomePage() {
           }} data-testid="import-input" />
           <Button onClick={() => fileInput.current?.click()}>{t("home.import")}</Button>
           {cvs && cvs.length > 0 && <Button onClick={() => downloadBackup(cvs, `thaflow-cv-backup-${new Date().toISOString().slice(0, 10)}.json`)}>{t("home.backupAll")}</Button>}
-          <Button variant="primary" onClick={() => router.push("/create/")} data-testid="new-cv">
+          <Button variant="primary" onClick={() => router.push("/new/")} data-testid="new-cv">
             + {t("home.new")}
           </Button>
         </div>
@@ -78,7 +78,7 @@ export default function HomePage() {
         <Card className="px-6 py-14 text-center">
           <h2 className="text-lg font-semibold text-slate-900">{t("home.emptyTitle")}</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">{t("home.emptyBody")}</p>
-          <Button variant="primary" className="mt-5" onClick={() => router.push("/create/")}>
+          <Button variant="primary" className="mt-5" onClick={() => router.push("/new/")}>
             + {t("home.new")}
           </Button>
         </Card>

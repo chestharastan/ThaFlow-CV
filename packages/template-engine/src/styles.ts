@@ -1,5 +1,3 @@
-import type { CVTemplate } from "./templates";
-
 /**
  * Stylesheet shared by every template. Templates differ only through modifier
  * classes and CSS variables set by <CVPreview>, so adding a template is mostly
@@ -98,17 +96,13 @@ export const templateCss = /* css */ `
 .cv--banner .cv-main { padding: 9mm 15mm 14mm; }
 `;
 
-/** The @page rule for one template. Rendered by <CVPreview pageStyle>. */
-export function getPageCss(_template: CVTemplate): string {
-  return "@media print { @page { size: A4; margin: 0; } }";
-}
-
 /**
  * Print rules for the page that hosts the preview. Everything except the
  * element marked .cv-print-root is hidden, so "Print → Save as PDF" yields the CV only.
  */
 export const printCss = /* css */ `
 @media print {
+  @page { size: A4; margin: 0; }
   html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
   .no-print { display: none !important; }
   .cv-print-root { transform: none !important; zoom: 1 !important; margin: 0 !important; box-shadow: none !important; }

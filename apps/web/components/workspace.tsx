@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AIOutputError, AIUnavailableError } from "@thaflow/ai-engine";
 import { SECTION_KEYS, setTextAtPath, type CVDocument, type ContentSuggestion, type SectionKey } from "@thaflow/cv-core";
 import { downloadBackup, downloadBlob, fileNameFor, generateDOCX, printToPDF } from "@thaflow/export-engine";
 import type { MessageKey } from "@thaflow/localization";
+import { getSteps, isStepAnswered, type StepId } from "@thaflow/questionnaire";
 import { createRuleEngine } from "@thaflow/rule-engine";
 import { CVPreview } from "@thaflow/template-engine";
 import { useAI } from "@/lib/ai";
@@ -20,7 +21,6 @@ import { WorkspaceContext, type AssistRequest, type WorkspaceContextValue } from
 
 const ruleEngine = createRuleEngine();
 type Tab = "content" | "design" | "check" | "history";
-type StepId = "personal" | SectionKey;
 const ALL_SECTIONS: StepId[] = ["personal", ...SECTION_KEYS];
 
 function ExportMenu({ cv }: { cv: CVDocument }) {
@@ -81,14 +81,16 @@ function ExportMenu({ cv }: { cv: CVDocument }) {
   );
 }
 
-export function Workspace() {
+export function Workspace({ mode }: { mode: "editor" | "guide" }) {
   const { t, settings } = useApp();
+  const router = useRouter();
   const id = useSearchParams().get("id") ?? "";
   const { cv, status, saveState, past, future, load, update, replace, undo, redo } = useEditor();
   const { orchestrator, state: aiState } = useAI();
 
   const [tab, setTab] = useState<Tab>("content");
   const [section, setSection] = useState<StepId>("personal");
+  const [stepIndex, setStepIndex] = useState(0);
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [suggestions, setSuggestions] = useState<ContentSuggestion[]>([]);
   const [busyField, setBusyField] = useState<string | null>(null);
@@ -178,6 +180,8 @@ export function Workspace() {
   }
   if (!cv || !report) return <p className="p-8 text-center text-sm text-slate-500">{t("common.loading")}</p>;
 
+  const steps = getSteps(cv.metadata.target);
+  const step = steps[Math.min(stepIndex, steps.length - 1)]!;
   const issueCount = report.counts.error + report.counts.warning;
   const openSection = (target: StepId) => {
     setSection(target);
@@ -204,8 +208,8 @@ export function Workspace() {
           </span>
           <Button variant="ghost" disabled={past.length === 0} onClick={undo} aria-label={t("action.undo")} title={t("action.undo")}>↶</Button>
           <Button variant="ghost" disabled={future.length === 0} onClick={redo} aria-label={t("action.redo")} title={t("action.redo")}>↷</Button>
-          <Link href={`/templates/?id=${cv.id}`} className="hidden rounded-lg border border-line-strong px-3 py-2 text-sm font-medium text-ink hover:border-ink sm:inline-block">
-            {t("design.template")}
+          <Link href={mode === "guide" ? `/editor/?id=${cv.id}` : `/guide/?id=${cv.id}`} className="hidden rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 sm:inline-block">
+            {mode === "guide" ? t("nav.openEditor") : t("nav.openGuide")}
           </Link>
           <ExportMenu cv={cv} />
         </header>
@@ -220,7 +224,47 @@ export function Workspace() {
 
         <div className="flex min-h-0 flex-1">
           <div className={cx("w-full min-w-0 flex-col overflow-y-auto bg-slate-50 lg:flex lg:w-[30rem] lg:shrink-0 lg:border-r lg:border-slate-200 xl:w-[34rem]", mobileView === "edit" ? "flex" : "hidden")}>
-            {(
+            {mode === "guide" ? (
+              <div className="flex-1 p-4">
+                <ol className="mb-4 flex gap-1" aria-label={t("guide.progress")}>
+                  {steps.map((s, i) => (
+                    <li key={s.id} className="flex-1">
+                      <button
+                        type="button"
+                        onClick={() => setStepIndex(i)}
+                        aria-current={i === stepIndex ? "step" : undefined}
+                        aria-label={t(`section.${s.id}` as MessageKey)}
+                        className={cx("h-1.5 w-full rounded-full", i === stepIndex ? "bg-brand-600" : isStepAnswered(cv, s.id) ? "bg-brand-300" : "bg-slate-300")}
+                      />
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-xs font-medium text-slate-500">
+                  {t("guide.step", { current: stepIndex + 1, total: steps.length })}
+                  {step.optional ? ` · ${t("guide.optional")}` : ""}
+                </p>
+                <h2 className="mt-1 text-xl font-semibold text-slate-900">{t(`guide.${step.id}.title` as MessageKey)}</h2>
+                <p className="mb-4 mt-1 text-sm text-slate-600">{t(`guide.${step.id}.help` as MessageKey)}</p>
+                <SectionForm cv={cv} section={step.id} />
+                <div className="mt-3">
+                  <QuickAdd cv={cv} onAdded={() => {}} />
+                </div>
+                <div className="mt-6 flex justify-between">
+                  <Button disabled={stepIndex === 0} onClick={() => setStepIndex(stepIndex - 1)}>
+                    {t("guide.back")}
+                  </Button>
+                  {stepIndex < steps.length - 1 ? (
+                    <Button variant="primary" onClick={() => setStepIndex(stepIndex + 1)} data-testid="guide-next">
+                      {step.optional && !isStepAnswered(cv, step.id) ? t("guide.skip") : t("guide.next")}
+                    </Button>
+                  ) : (
+                    <Button variant="primary" onClick={() => router.push(`/editor/?id=${cv.id}`)} data-testid="guide-finish">
+                      {t("guide.finish")}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
               <>
                 <div className="sticky top-0 z-10 flex border-b border-slate-200 bg-white px-2" role="tablist">
                   {(["content", "design", "check", "history"] as const).map((key) => (
@@ -282,7 +326,7 @@ export function Workspace() {
       </div>
       {/* Unscaled copy that only exists on paper: this is what "Save as PDF" prints. */}
       <div className="print-only">
-        <CVPreview cv={cv} pageStyle />
+        <CVPreview cv={cv} />
       </div>
     </WorkspaceContext.Provider>
   );

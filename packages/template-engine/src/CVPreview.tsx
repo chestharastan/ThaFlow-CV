@@ -4,7 +4,6 @@ import { createContext, useContext, type CSSProperties, type ReactNode } from "r
 import { formatDateRange, formatPartialDate, type CVDocument, type SectionKey } from "@thaflow/cv-core";
 import { getCVLabels, type CVLabels } from "@thaflow/localization";
 import { SIDEBAR_SECTIONS, contactLines, getVisibleSections, parseDescription } from "./sections";
-import { getPageCss } from "./styles";
 import { FONT_STACKS, getTemplate, resolveAppearance, type CVTemplate } from "./templates";
 
 export interface CVPreviewProps {
@@ -12,11 +11,6 @@ export interface CVPreviewProps {
   /** Defaults to the template referenced by the CV. */
   template?: CVTemplate;
   className?: string;
-  /**
-   * Emit the @page rule for this template alongside the CV. Set it on the one
-   * copy that is printed, so "Save as PDF" gets the right paper size and margins.
-   */
-  pageStyle?: boolean;
 }
 
 interface Ctx {
@@ -262,7 +256,7 @@ function NameBlock({ ctx }: { ctx: Ctx }) {
  * Renders a CV document with a template. Pure function of (cv, template): it
  * does not care whether content came from the questionnaire, manual editing or AI.
  */
-export function CVPreview({ cv, template: templateProp, className, pageStyle }: CVPreviewProps) {
+export function CVPreview({ cv, template: templateProp, className }: CVPreviewProps) {
   const template = templateProp ?? getTemplate(cv.appearance.templateId);
   const look = resolveAppearance(template, cv.appearance);
   const ctx: Ctx = { cv, template, labels: getCVLabels(cv.metadata.language) };
@@ -297,7 +291,6 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
 
   return (
     <DateColumnContext.Provider value={Boolean(template.style.dateColumn)}>
-    {pageStyle ? <style>{getPageCss(template)}</style> : null}
     <article className={classes} style={style} lang={cv.metadata.language} data-template={template.id}>
       {isSidebar ? (
         <>

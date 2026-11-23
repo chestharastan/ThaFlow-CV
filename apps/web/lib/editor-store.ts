@@ -55,8 +55,6 @@ export const useEditor = create<EditorState>((set, get) => {
     future: [],
 
     async load(id) {
-      // Moving between screens of the same CV keeps the document (and undo history) in memory.
-      if (get().cv?.id === id && get().status === "ready") return;
       if (saveTimer) await get().flush();
       set({ cv: null, status: "loading", past: [], future: [], saveState: "idle" });
       try {
