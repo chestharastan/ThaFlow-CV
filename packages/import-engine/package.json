@@ -1,0 +1,14 @@
+{
+  "name": "@thaflow/import-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@thaflow/cv-core": "workspace:*",
+    "@thaflow/rule-engine": "workspace:*",
+    "jszip": "^3.10.1",
+    "pdfjs-dist": "^5.0.0"
+  }
+}

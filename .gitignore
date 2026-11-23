@@ -11,5 +11,5 @@ __pycache__
 test-results
 apps/web/e2e/screenshots
 next-env.d.ts
-.claude/worktrees/
 apps/web/public/pdf.worker.min.mjs
+.claude/worktrees/

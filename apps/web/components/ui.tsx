@@ -1,76 +1,169 @@
 "use client";
 
-import { useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
+import {
+  useId,
+  useState,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from "react";
 
-const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
+/**
+ * Shared primitives for the whole app. Text on white, one neutral scale, one
+ * filled element (the primary action) per screen. See app/globals.css for tokens.
+ */
+
+export const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-const variants: Record<ButtonVariant, string> = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700 disabled:bg-slate-300",
-  secondary: "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:text-slate-400",
-  ghost: "text-slate-600 hover:bg-slate-100 disabled:text-slate-300",
-  danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50",
+type ControlSize = "sm" | "md" | "lg";
+
+const buttonVariants: Record<ButtonVariant, string> = {
+  primary: "bg-brand text-on-brand hover:bg-brand-hover disabled:bg-line disabled:text-faint",
+  secondary: "border border-line-strong bg-paper text-ink hover:border-ink disabled:border-line disabled:text-faint",
+  ghost: "text-ink-soft hover:bg-surface hover:text-ink disabled:text-faint disabled:hover:bg-transparent",
+  danger: "border border-line-strong bg-paper text-danger hover:border-danger disabled:text-faint",
+};
+
+const buttonSizes: Record<ControlSize, string> = {
+  sm: "h-8 rounded-md px-2.5 text-xs",
+  md: "h-10 rounded-lg px-4 text-sm",
+  lg: "h-13 rounded-xl px-6 text-base",
 };
 
 export function Button({
   variant = "secondary",
+  size,
   small,
   className,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; small?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: ControlSize;
+  /** Shorthand for size="sm". */
+  small?: boolean;
+}) {
   return (
     <button
       type="button"
       {...props}
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:cursor-not-allowed",
-        small ? "px-2.5 py-1 text-xs" : "px-3.5 py-2 text-sm",
-        variants[variant],
+        "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap font-medium transition-colors disabled:cursor-not-allowed",
+        buttonSizes[size ?? (small ? "sm" : "md")],
+        buttonVariants[variant],
         className,
       )}
     />
   );
 }
 
-const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500";
+const controlBase =
+  "w-full border border-line-strong bg-paper text-ink placeholder:text-faint transition-colors hover:border-muted focus:border-ink focus:outline-none focus-visible:outline-none focus:ring-1 focus:ring-ink";
+const controlSizes: Record<ControlSize, string> = {
+  sm: "rounded-md px-2.5 py-1.5 text-sm",
+  md: "rounded-lg px-3 py-2 text-sm",
+  lg: "rounded-xl px-4 py-3.5 text-lg",
+};
+const controlInvalid = "border-danger hover:border-danger focus:border-danger focus:ring-danger";
 
-export function Field({ label, hint, error, children, className }: { label: string; hint?: string; error?: string; children: (id: string) => ReactNode; className?: string }) {
+/** Label + control + hint or error. Pass the generated id to the control. */
+export function Field({
+  label,
+  hint,
+  error,
+  children,
+  className,
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  children: (id: string) => ReactNode;
+  className?: string;
+}) {
   const id = useId();
   return (
     <div className={className}>
-      <label htmlFor={id} className="mb-1 block text-xs font-medium text-slate-600">
+      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-muted">
         {label}
       </label>
       {children(id)}
       {error ? (
-        <p className="mt-1 text-xs text-red-600" role="alert">
+        <p className="mt-1.5 text-xs text-danger" role="alert">
           {error}
         </p>
       ) : hint ? (
-        <p className="mt-1 text-xs text-slate-400">{hint}</p>
+        <p className="mt-1.5 text-xs text-faint">{hint}</p>
       ) : null}
     </div>
   );
 }
 
-export function TextInput({ invalid, ...props }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
-  return <input {...props} aria-invalid={invalid || undefined} className={cx(inputClass, invalid && "border-red-400", props.className)} />;
+export function TextInput({
+  invalid,
+  controlSize = "md",
+  className,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; controlSize?: ControlSize }) {
+  return (
+    <input
+      {...props}
+      aria-invalid={invalid || undefined}
+      className={cx(controlBase, controlSizes[controlSize], invalid && controlInvalid, className)}
+    />
+  );
 }
 
-export function TextArea({ invalid, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }) {
-  return <textarea rows={4} {...props} aria-invalid={invalid || undefined} className={cx(inputClass, "resize-y leading-relaxed", invalid && "border-red-400", props.className)} />;
+export function TextArea({
+  invalid,
+  controlSize = "md",
+  className,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean; controlSize?: ControlSize }) {
+  return (
+    <textarea
+      rows={4}
+      {...props}
+      aria-invalid={invalid || undefined}
+      className={cx(controlBase, controlSizes[controlSize], "resize-y leading-relaxed", invalid && controlInvalid, className)}
+    />
+  );
 }
 
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={cx(inputClass, props.className)} />;
+export function Select({
+  controlSize = "md",
+  className,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement> & { controlSize?: ControlSize }) {
+  return <select {...props} className={cx(controlBase, controlSizes[controlSize], "appearance-auto", className)} />;
 }
 
 /** Chip input for short lists (skills, technologies). Enter or comma adds; Backspace on empty removes the last. */
-export function TagInput({ id, values, onChange, placeholder, removeLabel }: { id?: string; values: string[]; onChange(values: string[]): void; placeholder?: string; removeLabel: string }) {
+export function TagInput({
+  id,
+  values,
+  onChange,
+  placeholder,
+  removeLabel,
+  controlSize = "md",
+  autoFocus,
+}: {
+  id?: string;
+  values: string[];
+  onChange(values: string[]): void;
+  placeholder?: string;
+  removeLabel: string;
+  controlSize?: ControlSize;
+  autoFocus?: boolean;
+}) {
   const [draft, setDraft] = useState("");
+  const large = controlSize === "lg";
   const add = (raw: string) => {
-    const parts = raw.split(/[,\n;]/).map((s) => s.trim()).filter(Boolean);
+    const parts = raw
+      .split(/[,\n;]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (parts.length === 0) return;
     const lower = new Set(values.map((v) => v.toLowerCase()));
     const fresh = parts.filter((p) => !lower.has(p.toLowerCase()) && lower.add(p.toLowerCase()));
@@ -78,11 +171,24 @@ export function TagInput({ id, values, onChange, placeholder, removeLabel }: { i
     setDraft("");
   };
   return (
-    <div className="flex flex-wrap gap-1.5 rounded-lg border border-slate-300 bg-white p-1.5 focus-within:border-brand-500">
+    <div
+      className={cx(
+        "flex flex-wrap gap-1.5 border border-line-strong bg-paper transition-colors hover:border-muted focus-within:border-ink focus-within:ring-1 focus-within:ring-ink",
+        large ? "rounded-xl p-2.5" : "rounded-lg p-1.5",
+      )}
+    >
       {values.map((value, i) => (
-        <span key={`${value}-${i}`} className="inline-flex items-center gap-1 rounded-md bg-slate-100 py-0.5 pl-2 pr-1 text-sm text-slate-800">
+        <span
+          key={`${value}-${i}`}
+          className={cx("inline-flex items-center gap-1 rounded-md bg-surface text-ink", large ? "py-1 pl-3 pr-1.5 text-base" : "py-0.5 pl-2 pr-1 text-sm")}
+        >
           {value}
-          <button type="button" aria-label={`${removeLabel}: ${value}`} onClick={() => onChange(values.filter((_, j) => j !== i))} className="rounded px-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700">
+          <button
+            type="button"
+            aria-label={`${removeLabel}: ${value}`}
+            onClick={() => onChange(values.filter((_, j) => j !== i))}
+            className="rounded px-1 text-muted hover:bg-line hover:text-ink"
+          >
             ×
           </button>
         </span>
@@ -90,10 +196,12 @@ export function TagInput({ id, values, onChange, placeholder, removeLabel }: { i
       <input
         id={id}
         value={draft}
+        autoFocus={autoFocus}
         placeholder={values.length === 0 ? placeholder : undefined}
         onChange={(e) => (/[,\n;]/.test(e.target.value) ? add(e.target.value) : setDraft(e.target.value))}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
+          if (e.key === "Enter" && draft.trim()) {
+            // Only swallow Enter when it adds a tag, so Enter on an empty box can still submit a surrounding form.
             e.preventDefault();
             add(draft);
           } else if (e.key === "Backspace" && !draft && values.length) {
@@ -108,14 +216,15 @@ export function TagInput({ id, values, onChange, placeholder, removeLabel }: { i
             add(text);
           }
         }}
-        className="min-w-[8rem] flex-1 border-0 bg-transparent px-1.5 py-1 text-sm outline-none focus:outline-none"
+        className={cx(
+          "min-w-[8rem] flex-1 border-0 bg-transparent text-ink outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none",
+          large ? "px-1.5 py-1 text-lg" : "px-1.5 py-1 text-sm",
+        )}
       />
     </div>
   );
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("rounded-xl border border-slate-200 bg-white", className)}>{children}</div>;
+  return <div className={cx("rounded-xl border border-line bg-paper", className)}>{children}</div>;
 }
-
-export { cx };

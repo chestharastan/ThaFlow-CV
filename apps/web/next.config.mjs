@@ -8,6 +8,7 @@ const nextConfig = {
     "@thaflow/ai-engine",
     "@thaflow/cv-core",
     "@thaflow/export-engine",
+    "@thaflow/import-engine",
     "@thaflow/localization",
     "@thaflow/questionnaire",
     "@thaflow/rule-engine",

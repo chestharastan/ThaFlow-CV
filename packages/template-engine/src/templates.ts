@@ -1,6 +1,8 @@
 import { SECTION_KEYS, type CVLanguage, type SectionKey } from "@thaflow/cv-core";
 
-export type TemplateCategory = "professional" | "student" | "academic" | "creative";
+/** Primary style family, used for the gallery filter. */
+export type TemplateCategory = "simple" | "modern" | "classic" | "creative";
+export const TEMPLATE_CATEGORIES: TemplateCategory[] = ["simple", "modern", "classic", "creative"];
 export type LayoutKind = "single" | "sidebar-left" | "sidebar-right" | "banner";
 export type HeadingStyle = "underline" | "bar" | "caps" | "boxed" | "plain";
 
@@ -76,7 +78,7 @@ export const templates: CVTemplate[] = [
     id: "minimal",
     name: "Minimal",
     description: "Simple and clean",
-    category: "professional",
+    category: "simple",
     supportedLanguages: both,
     layout: { kind: "single", columns: 1, sidebar: false, photo: false },
     typography: { headingFont: "sans", bodyFont: "sans", baseFontSize: 10 },
@@ -88,7 +90,7 @@ export const templates: CVTemplate[] = [
     id: "modern",
     name: "Modern",
     description: "Contemporary two-column design",
-    category: "professional",
+    category: "modern",
     supportedLanguages: both,
     layout: { kind: "sidebar-left", columns: 2, sidebar: true, photo: true },
     typography: { headingFont: "sans", bodyFont: "sans", baseFontSize: 9.5 },
@@ -100,7 +102,7 @@ export const templates: CVTemplate[] = [
     id: "corporate",
     name: "Corporate",
     description: "Traditional business",
-    category: "professional",
+    category: "classic",
     supportedLanguages: both,
     layout: { kind: "single", columns: 1, sidebar: false, photo: false },
     typography: { headingFont: "serif", bodyFont: "serif", baseFontSize: 10.5 },
@@ -112,7 +114,7 @@ export const templates: CVTemplate[] = [
     id: "graduate",
     name: "Graduate",
     description: "Students and fresh graduates",
-    category: "student",
+    category: "modern",
     supportedLanguages: both,
     layout: { kind: "banner", columns: 1, sidebar: false, photo: true },
     typography: { headingFont: "sans", bodyFont: "sans", baseFontSize: 10 },
@@ -124,7 +126,7 @@ export const templates: CVTemplate[] = [
     id: "academic",
     name: "Academic",
     description: "Researchers and lecturers",
-    category: "academic",
+    category: "classic",
     supportedLanguages: both,
     layout: { kind: "single", columns: 1, sidebar: false, photo: false },
     typography: { headingFont: "serif", bodyFont: "serif", baseFontSize: 10.5 },
@@ -136,7 +138,7 @@ export const templates: CVTemplate[] = [
     id: "technical",
     name: "Technical",
     description: "Developers and engineers",
-    category: "professional",
+    category: "modern",
     supportedLanguages: both,
     layout: { kind: "single", columns: 1, sidebar: false, photo: false },
     typography: { headingFont: "mono", bodyFont: "sans", baseFontSize: 9.5 },
@@ -160,7 +162,7 @@ export const templates: CVTemplate[] = [
     id: "executive",
     name: "Executive",
     description: "Senior professionals",
-    category: "professional",
+    category: "classic",
     supportedLanguages: both,
     layout: { kind: "banner", columns: 1, sidebar: false, photo: false },
     typography: { headingFont: "serif", bodyFont: "sans", baseFontSize: 10 },
@@ -172,7 +174,7 @@ export const templates: CVTemplate[] = [
     id: "ats",
     name: "ATS-friendly",
     description: "Simple machine-readable layout",
-    category: "professional",
+    category: "simple",
     supportedLanguages: both,
     layout: { kind: "single", columns: 1, sidebar: false, photo: false },
     typography: { headingFont: "sans", bodyFont: "sans", baseFontSize: 10.5 },
@@ -184,7 +186,7 @@ export const templates: CVTemplate[] = [
     id: "bilingual",
     name: "Bilingual",
     description: "Khmer and English content",
-    category: "professional",
+    category: "simple",
     supportedLanguages: both,
     layout: { kind: "single", columns: 1, sidebar: false, photo: true },
     typography: { headingFont: "kantumruy", bodyFont: "kantumruy", baseFontSize: 10.5 },

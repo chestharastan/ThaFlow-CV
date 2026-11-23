@@ -6,7 +6,7 @@ import { Workspace } from "@/components/workspace";
 export default function EditorPage() {
   return (
     <Suspense>
-      <Workspace mode="editor" />
+      <Workspace />
     </Suspense>
   );
 }
