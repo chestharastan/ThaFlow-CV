@@ -1,0 +1,9 @@
+{
+  "name": "@thaflow/template-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": { "@thaflow/cv-core": "workspace:*", "@thaflow/localization": "workspace:*", "react": "^19.0.0" }
+}

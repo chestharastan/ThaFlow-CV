@@ -1,0 +1,11 @@
+{
+  "name": "ThaFlow CV",
+  "short_name": "ThaFlow CV",
+  "description": "Privacy-first CV builder in Khmer and English.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2854d8",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

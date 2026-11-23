@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@source "../components";
+@source "../lib";
+
+@theme {
+  --color-brand-50: #eef4ff;
+  --color-brand-200: #c3d5fe;
+  --color-brand-300: #9db9fc;
+  --color-brand-500: #3b6cf0;
+  --color-brand-600: #2854d8;
+  --color-brand-700: #2143ae;
+  --font-sans: "Kantumruy Pro", "Noto Sans Khmer", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Khmer UI text needs extra leading so subscripts and vowels are not clipped. */
+html:lang(km) body {
+  line-height: 1.75;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 1px;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-only {
+    display: block;
+  }
+}

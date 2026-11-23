@@ -1,0 +1,21 @@
+{
+  "name": "thaflow-cv",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "pnpm --filter @thaflow/web dev",
+    "build": "pnpm --filter @thaflow/web build",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --filter @thaflow/web typecheck",
+    "e2e": "node apps/web/e2e/smoke.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "fake-indexeddb": "^6.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}
