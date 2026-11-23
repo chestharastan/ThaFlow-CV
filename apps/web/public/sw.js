@@ -1,8 +1,8 @@
 /* ThaFlow CV service worker: makes the app shell work offline after the first visit.
    Only same-origin GET requests are cached. CV data lives in IndexedDB and never passes through here,
    and cross-origin requests (the optional cloud AI endpoint) are never intercepted. */
-const CACHE = "thaflow-cv-v1";
-const SHELL = ["/", "/new/", "/editor/", "/guide/", "/settings/", "/manifest.webmanifest", "/icon.svg"];
+const CACHE = "thaflow-cv-v2";
+const SHELL = ["/", "/create/", "/templates/", "/editor/", "/settings/", "/manifest.webmanifest", "/icon.svg", "/pdf.worker.min.mjs"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
