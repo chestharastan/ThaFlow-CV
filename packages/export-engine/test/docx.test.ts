@@ -212,7 +212,7 @@ describe("DOCX export for every template", () => {
     expect(await xml("ink")).toContain("<w:caps/>");
     expect(await xml("ink")).toContain("Sophea Chan");
     // A banner template shades its header paragraphs.
-    expect(await xml("tonle")).toContain('w:fill="111111"');
+    expect(await xml("tonle")).toContain(`w:fill="${getTemplate("tonle").colors.primary.slice(1)}"`);
     expect(await xml("minimal")).not.toContain("<w:shd ");
   });
 

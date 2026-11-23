@@ -406,6 +406,7 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
 
   const style = {
     "--cv-primary": look.primary,
+    "--cv-on-primary": look.onPrimary,
     "--cv-text": colors.text,
     "--cv-muted": colors.muted,
     "--cv-bg": colors.background,
@@ -453,6 +454,7 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
     `cv--photo-${layout.photo}`,
     photo ? "cv--has-photo" : "",
     `cv--fill-${design.fill}`,
+    `cv--edge-${design.edge}`,
     isFullBleed(template) ? "cv--bleed" : "cv--flow",
     `cv--rules-${design.rules}`,
     `cv--bullet-${design.bullet}`,

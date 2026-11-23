@@ -11,6 +11,7 @@ import {
   FONT_STACKS,
   TEMPLATE_CATEGORIES,
   getTemplate,
+  isColourful,
   isFullBleed,
   readableOn,
   resolveAppearance,
@@ -68,9 +69,15 @@ describe("template registry", () => {
     expect(getTemplate("")).toBe(templates[0]);
   });
 
-  it("is mostly pure text on white: at least 22 templates have no filled areas", () => {
-    expect(count((t) => !isFullBleed(t))).toBeGreaterThanOrEqual(22);
+  it("offers both: plain black-on-white designs and designs that carry colour", () => {
+    // People who want it simple still have it; the gallery as a whole is not thirty near-identical pages.
+    expect(count((t) => !isColourful(t) && ["#111111", "#000000"].includes(t.colors.primary))).toBeGreaterThanOrEqual(6);
+    expect(count((t) => isColourful(t))).toBeGreaterThanOrEqual(10);
+    expect(count((t) => t.colors.primary !== "#111111" && t.colors.primary !== "#000000")).toBeGreaterThanOrEqual(18);
+    expect(new Set(templates.map((t) => t.colors.primary)).size).toBeGreaterThanOrEqual(16);
     for (const t of templates) expect(t.colors.background, t.id).toBe("#ffffff");
+    // The first screen of the gallery shows the range.
+    expect(templates.slice(0, 8).filter(isColourful).length).toBeGreaterThanOrEqual(4);
   });
 
   it("mixes one- and two-column layouts, with at least six two-column", () => {
@@ -119,16 +126,10 @@ describe("template registry", () => {
     expect(withPhoto).toBeLessThan(15);
   });
 
-  it("uses black, gray or one restrained accent as the default colour", () => {
-    const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-    const neutral = count((t) => {
-      const [r, g, b] = channels(t.colors.primary) as [number, number, number];
-      return Math.max(r, g, b) - Math.min(r, g, b) <= 24;
-    });
-    expect(neutral).toBeGreaterThanOrEqual(22);
+  it("gives every default colour enough weight to carry white text", () => {
     for (const t of templates) {
       expect(t.colors.primary, t.id).toMatch(/^#[0-9a-f]{6}$/);
-      // Restrained: dark enough to carry white text, so it also reads as text on white.
+      // Dark enough for a filled band or sidebar, so it also reads as text on white.
       expect(readableOn(t.colors.primary), t.id).toBe("#ffffff");
     }
   });
@@ -221,21 +222,21 @@ describe("appearance overrides", () => {
     expect(dark.fill.text).toBe("#ffffff");
     const light = resolveAppearance(bokor, { primaryColor: "#fde68a", fontFamily: "" });
     expect(light.fill.text).toBe("#111111");
-    const studio = resolveAppearance(getTemplate("creative"), { primaryColor: "#14532d", fontFamily: "" });
-    expect(studio.fill.background).not.toBe("#ffffff");
-    expect(readableOn(studio.fill.background)).toBe("#111111");
+    const tinted = resolveAppearance(getTemplate("kampot"), { primaryColor: "#14532d", fontFamily: "" });
+    expect(tinted.fill.background).not.toBe("#ffffff");
+    expect(readableOn(tinted.fill.background)).toBe("#111111");
     const plain = resolveAppearance(getTemplate("minimal"), { primaryColor: "#14532d", fontFamily: "" });
     expect(plain.fill.background).toBe("#ffffff");
   });
 
-  it("leads the colour presets with black and grays, then restrained accents", () => {
+  it("leads the colour presets with black and gray, then the accents", () => {
     expect(COLOR_PRESETS[0]).toBe("#111111");
     const saturation = (hex: string) => {
       const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
       return Math.max(...c) - Math.min(...c);
     };
-    expect(COLOR_PRESETS.slice(0, 3).every((c) => saturation(c) <= 30)).toBe(true);
-    expect(COLOR_PRESETS.slice(3).every((c) => saturation(c) > 30)).toBe(true);
+    expect(COLOR_PRESETS.slice(0, 2).every((c) => saturation(c) <= 30)).toBe(true);
+    expect(COLOR_PRESETS.slice(2).every((c) => saturation(c) > 30)).toBe(true);
     expect(new Set(COLOR_PRESETS).size).toBe(COLOR_PRESETS.length);
     for (const color of COLOR_PRESETS) {
       expect(color).toMatch(/^#[0-9a-f]{6}$/);
@@ -243,7 +244,7 @@ describe("appearance overrides", () => {
     }
     // Every template's own default is offered, so "back to the default colour" is always one click.
     for (const t of templates) {
-      if (!isFullBleed(t) && t.colors.primary !== "#000000") expect(COLOR_PRESETS, t.id).toContain(t.colors.primary);
+      if (t.colors.primary !== "#000000") expect(COLOR_PRESETS, t.id).toContain(t.colors.primary);
     }
   });
 });

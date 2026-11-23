@@ -141,6 +141,8 @@ export const templateCss = /* css */ `
 }
 .cv--heading-bar .cv-heading { padding-left: 2.4mm; border-left: 1.1mm solid var(--cv-marker-color); }
 .cv--heading-boxed .cv-heading { display: table; padding: 0.5mm 2.2mm; border: 0.3mm solid var(--cv-heading-color); }
+.cv--heading-band .cv-heading { padding: 1mm 2.6mm; border-radius: 0.9mm; background: var(--cv-primary); color: var(--cv-on-primary); }
+.cv--heading-tint .cv-heading { padding: 1mm 2.6mm; border-radius: 0.9mm; background: color-mix(in srgb, var(--cv-primary) 11%, transparent); color: var(--cv-primary); }
 .cv--heading-label { --cv-heading-color: var(--cv-muted); }
 .cv--heading-label.cv--accent-headings { --cv-heading-color: var(--cv-primary); }
 .cv--heading-center-rule .cv-heading, .cv--heading-trail .cv-heading { display: flex; align-items: center; gap: 3mm; }
@@ -317,7 +319,13 @@ export const templateCss = /* css */ `
   break-after: avoid;
 }
 
-/* ---------- Fills (the few templates that are not pure text on white) ---------- */
+/* ---------- Colour: edge stripes, tinted pills ---------- */
+.cv--edge-left { border-left: 4.5mm solid var(--cv-primary); }
+.cv--edge-top { border-top: 3.2mm solid var(--cv-primary); }
+.cv--accent-markers .cv-pill { border-color: color-mix(in srgb, var(--cv-primary) 28%, transparent); background: color-mix(in srgb, var(--cv-primary) 8%, transparent); }
+.cv-sidebar .cv-pill { background: transparent; }
+
+/* ---------- Fills: sidebars and banners ---------- */
 .cv--bleed { padding: 0; }
 .cv--fill-sidebar-tint .cv-body, .cv--fill-sidebar-dark .cv-body { column-gap: 0; min-height: 297mm; }
 .cv--fill-sidebar-tint .cv-sidebar, .cv--fill-sidebar-dark .cv-sidebar {
@@ -396,6 +404,11 @@ const bleedPrint = (template: CVTemplate): string => {
 export function getPageCss(template: CVTemplate): string {
   if (isFullBleed(template)) {
     return `@media print {\n  @page { size: A4; margin: 0; }${bleedPrint(template)}\n}`;
+  }
+  if (template.style.edge !== "none") {
+    // An edge stripe has to reach the paper's edge: no page margin, and the page's own padding (and the
+    // stripe) repeated on every sheet.
+    return `@media print {\n  @page { size: A4; margin: 0; }\n  .cv[data-template="${template.id}"] { min-height: 0; -webkit-box-decoration-break: clone; box-decoration-break: clone; }\n}`;
   }
   const { padY, padX } = DENSITY[template.style.density];
   return `@media print {

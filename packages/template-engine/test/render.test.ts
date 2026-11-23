@@ -301,7 +301,7 @@ describe("appearance in the rendered CV", () => {
       "cv--layout-single", "cv--layout-split", "cv--placement-full", "cv--placement-main", "cv--placement-sidebar",
       "cv--one-column", "cv--two-column", "cv--header-left", "cv--header-monogram", "cv--heading-caps", "cv--heading-plain",
       "cv--halign-left", "cv--hcase-normal", "cv--name-normal", "cv--entry-date-right", "cv--skills-list",
-      "cv--density-compact", "cv--density-regular", "cv--density-airy", "cv--photo-none", "cv--fill-none", "cv--flow",
+      "cv--density-compact", "cv--density-regular", "cv--density-airy", "cv--photo-none", "cv--fill-none", "cv--edge-none", "cv--flow",
       "cv--rules-hair", "cv--bullet-disc", "cv--contact-dot", "cv--contact-pipe", "cv--contact-slash",
     ]);
     const unstyled = [...emitted].filter((name) => !defaults.has(name) && !templateCss.includes(`.${name}`));
@@ -358,7 +358,8 @@ describe("Khmer", () => {
 
 describe("print", () => {
   it("prints text-on-white templates with real page margins and no inner padding", () => {
-    for (const template of templates.filter((t) => !isFullBleed(t))) {
+    // (A design with an edge stripe prints to the paper's edge instead, so the stripe reaches it.)
+    for (const template of templates.filter((t) => !isFullBleed(t) && t.style.edge === "none")) {
       const css = getPageCss(template);
       const { padY, padX } = DENSITY[template.style.density];
       expect(css, template.id).toContain(`@page { size: A4; margin: ${padY}mm ${padX}mm; }`);

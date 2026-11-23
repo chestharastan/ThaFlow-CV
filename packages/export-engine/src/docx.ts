@@ -31,6 +31,7 @@ import {
   type CVTemplate,
   type FontKey,
   type HeadingStyle,
+  mixColor,
 } from "@thaflow/template-engine";
 
 /*
@@ -264,7 +265,7 @@ const RULED: Partial<Record<HeadingStyle, "top" | "bottom" | "both">> = {
 function heading(style: Style, text: string, index: number): Paragraph {
   const { style: design, typography: type } = style.template;
   const accent = design.accent.includes("headings");
-  const color = design.heading === "label" && !accent ? style.muted : accent ? style.accent : style.text;
+  const color = design.heading === "band" ? "FFFFFF" : design.heading === "tint" ? style.accent : design.heading === "label" && !accent ? style.muted : accent ? style.accent : style.text;
   const marker = design.accent.includes("markers") ? style.accent : style.muted;
   const upper = type.headingCase === "upper";
   // Small capitals carry Latin headings; Khmer has no capitals, so it keeps a readable size instead.
@@ -289,8 +290,11 @@ function heading(style: Style, text: string, index: number): Paragraph {
     }),
   );
 
+  // Banded headings carry over as shaded paragraphs.
+  const shade = design.heading === "band" ? style.accent : design.heading === "tint" ? mixColor(`#${style.accent}`, "#ffffff", 0.12).slice(1) : null;
   return new Paragraph({
     alignment: centered ? AlignmentType.CENTER : AlignmentType.LEFT,
+    ...(shade ? { shading: { type: ShadingType.CLEAR, fill: shade, color: "auto" } } : {}),
     spacing: { before: style.gap.section, after: ruled ? 110 : 90 },
     keepNext: true,
     keepLines: true,

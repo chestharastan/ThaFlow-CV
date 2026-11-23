@@ -25,7 +25,11 @@ export type HeadingStyle =
   | "numbered"
   | "label"
   | "trail"
-  | "double";
+  | "double"
+  /** A solid band in the accent colour with light text. */
+  | "band"
+  /** A soft band tinted with the accent colour. */
+  | "tint";
 /** Where an entry's dates go. */
 export type EntryStyle = "date-right" | "date-left" | "date-below" | "timeline";
 /** Which line of an experience/education entry is emphasised: the role/degree or the organisation. */
@@ -37,6 +41,8 @@ export type PhotoStyle = "none" | "circle" | "rounded" | "portrait";
 export type FillStyle = "none" | "sidebar-tint" | "sidebar-dark" | "banner-tint" | "banner-dark";
 /** Parts of the page that take the accent colour (fills always do). */
 export type AccentTarget = "name" | "headings" | "rules" | "titles" | "markers";
+/** A stripe of the accent colour along one edge of the page. */
+export type EdgeStyle = "none" | "left" | "top";
 export type RuleWeight = "hair" | "medium" | "heavy";
 export type BulletStyle = "disc" | "dash" | "square";
 export type ContactSeparator = "space" | "dot" | "pipe" | "slash";
@@ -112,6 +118,7 @@ export interface CVTemplate {
     skills: SkillStyle;
     density: Density;
     fill: FillStyle;
+    edge: EdgeStyle;
     accent: AccentTarget[];
     rules: RuleWeight;
     bullet: BulletStyle;
@@ -296,16 +303,30 @@ export const FONT_OPTIONS: { key: FontKey; label: string; docxFont: string; docx
 
 /** Black and grays first, then a few restrained accents. All are dark enough to carry white text. */
 export const COLOR_PRESETS = [
-  "#111111",
-  "#374151",
-  "#6b7280",
-  "#1e3a5f",
-  "#1d4e89",
-  "#155e75",
-  "#0f766e",
-  "#14532d",
-  "#7a1f1f",
-  "#9a3412",
+  "#111111", // black
+  "#374151", // graphite
+  "#1e3a5f", // navy
+  "#1d4e89", // steel blue
+  "#1d4ed8", // blue
+  "#0369a1", // sky
+  "#155e75", // deep cyan
+  "#0f766e", // teal
+  "#047857", // emerald
+  "#15803d", // green
+  "#14532d", // forest
+  "#8a6d1f", // gold
+  "#b45309", // amber
+  "#c2410c", // orange
+  "#7c2d12", // rust
+  "#b91c1c", // red
+  "#7a1f1f", // maroon
+  "#be123c", // rose
+  "#9f1239", // crimson
+  "#a21caf", // fuchsia
+  "#701a75", // plum
+  "#6d28d9", // violet
+  "#4f46e5", // indigo
+  "#4338ca", // deep indigo
 ];
 
 /* ---------- Page geometry ---------- */
@@ -385,6 +406,7 @@ function define(spec: Spec): CVTemplate {
       skills: "list",
       density: "regular",
       fill: "none",
+      edge: "none",
       accent: ["name", "headings"],
       rules: "hair",
       bullet: "disc",
@@ -400,7 +422,7 @@ function define(spec: Spec): CVTemplate {
  * The registry, in display order. The first template is the default for new CVs
  * and the fallback for unknown ids; the first few are the most broadly suitable.
  */
-export const templates: CVTemplate[] = [
+const designs: CVTemplate[] = [
   define({
     id: "minimal",
     name: "Minimal",
@@ -831,6 +853,67 @@ export const templates: CVTemplate[] = [
   }),
 ];
 
+/**
+ * Colour and finish for each design. Structure (above) says where things go;
+ * this says how much colour a design carries: its accent, any filled area, an
+ * edge stripe, banded headings. A handful stay plain black on white on purpose
+ * (for people who want that, and for applicant-tracking systems); the rest
+ * give the gallery real variety. A person's own accent colour still overrides
+ * `primary` everywhere.
+ */
+interface Finish {
+  primary?: string;
+  fill?: FillStyle;
+  edge?: EdgeStyle;
+  header?: HeaderStyle;
+  heading?: HeadingStyle;
+  accent?: AccentTarget[];
+}
+const FINISHES: Record<string, Finish> = {
+  modern: { primary: "#0f766e", edge: "top", accent: ["name", "headings", "rules", "markers"] },
+  graduate: { primary: "#047857", header: "banner", fill: "banner-dark" },
+  executive: { primary: "#7c2d12", accent: ["name", "headings", "rules"] },
+  kampot: { primary: "#b45309", fill: "sidebar-tint", accent: ["name", "headings", "markers"] },
+  timeline: { primary: "#6d28d9", accent: ["name", "headings", "markers"] },
+  creative: { primary: "#4338ca", fill: "sidebar-dark" },
+  corporate: { primary: "#1e3a5f", edge: "top" },
+  bassac: { primary: "#be123c", accent: ["name", "headings", "markers"] },
+  margin: { primary: "#4f46e5", edge: "left", accent: ["name", "headings", "markers"] },
+  balance: { primary: "#15803d", accent: ["name", "headings", "rules"] },
+  technical: { primary: "#1d4e89", heading: "band" },
+  bokor: { primary: "#155e75" },
+  bilingual: { primary: "#14532d", heading: "tint" },
+  monogram: { primary: "#c2410c", accent: ["name", "headings", "markers"] },
+  bayon: { primary: "#9f1239" },
+  compact: { primary: "#1d4ed8", accent: ["name", "headings", "rules"] },
+  index: { primary: "#0369a1", accent: ["name", "headings", "markers"] },
+  frame: { primary: "#701a75", accent: ["name", "headings", "rules"] },
+  poster: { primary: "#b91c1c", accent: ["name", "markers"] },
+  oudong: { primary: "#8a6d1f", accent: ["headings", "rules"] },
+  draft: { primary: "#7a1f1f", accent: ["headings", "markers"] },
+};
+
+/** Gallery order: the strongest and most broadly useful first, plain and colourful designs interleaved. */
+const ORDER = [
+  "minimal", "modern", "graduate", "executive", "kampot", "timeline", "creative", "corporate", "bassac", "margin",
+  "tonle", "balance", "technical", "bokor", "angkor", "bilingual", "monogram", "bayon", "compact", "index",
+  "kulen", "frame", "poster", "ats", "academic", "oudong", "ink", "quiet", "draft", "standard",
+];
+
+function finished(design: CVTemplate): CVTemplate {
+  const finish = FINISHES[design.id];
+  if (!finish) return design;
+  const { primary, ...style } = finish;
+  return { ...design, colors: { ...design.colors, ...(primary ? { primary } : {}) }, style: { ...design.style, ...style } };
+}
+
+/** The registry, in display order. The first template is the default for new CVs and the fallback for unknown ids. */
+export const templates: CVTemplate[] = [
+  ...ORDER.map((id) => designs.find((d) => d.id === id)).filter((d): d is CVTemplate => Boolean(d)),
+  ...designs.filter((d) => !ORDER.includes(d.id)),
+].map(finished);
+
+
 export const DEFAULT_TEMPLATE_ID = templates[0]!.id;
 
 /** Unknown ids fall back to the default so a CV always renders. */
@@ -845,6 +928,11 @@ export function isFontKey(value: string): value is FontKey {
 /** True when the template paints to the paper edge (filled sidebar or banner). */
 export function isFullBleed(template: CVTemplate): boolean {
   return template.style.fill !== "none";
+}
+
+/** Whether the design carries colour beyond its text: a filled area or an edge stripe. */
+export function isColourful(template: CVTemplate): boolean {
+  return template.style.fill !== "none" || template.style.edge !== "none" || template.style.heading === "band" || template.style.heading === "tint";
 }
 
 /**
@@ -879,7 +967,7 @@ export function templateSignature(t: CVTemplate): string {
  */
 export function templateStructure(t: CVTemplate): string {
   const { layout: l, style: s } = t;
-  return [l.kind, l.sidebar ? l.headerPlacement : "", s.header, s.heading, s.entry, s.fill].join("|");
+  return [l.kind, l.sidebar ? l.headerPlacement : "", s.header, s.heading, s.entry, s.fill, s.edge].join("|");
 }
 
 /* ---------- Colour helpers ---------- */
@@ -932,7 +1020,7 @@ export function resolveAppearance(
   // Filled areas derive from the accent so a colour override recolours them too.
   const dark = fill === "sidebar-dark" || fill === "banner-dark";
   const tint = fill === "sidebar-tint" || fill === "banner-tint";
-  const fillBackground = dark ? primary : tint ? mixColor(primary, background, 0.07) : background;
+  const fillBackground = dark ? primary : tint ? mixColor(primary, background, 0.1) : background;
   const fillText = dark ? onPrimary : text;
   const fillMuted = dark ? mixColor(onPrimary, primary, 0.78) : muted;
   const fillRule = dark ? mixColor(onPrimary, primary, 0.35) : tint ? mixColor(primary, background, 0.22) : rule;
