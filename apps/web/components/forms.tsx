@@ -63,8 +63,8 @@ function Fields(props: {
         const wide = f.wide || type === "textarea" || type === "lines" || type === "tags";
         if (type === "checkbox") {
           return (
-            <label key={f.key} className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
-              <input type="checkbox" checked={Boolean(raw)} onChange={(e) => props.onChange(f.key, e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-[var(--color-brand-600)]" />
+            <label key={f.key} className="flex items-center gap-2 self-end pb-2 text-sm text-ink-soft">
+              <input type="checkbox" checked={Boolean(raw)} onChange={(e) => props.onChange(f.key, e.target.checked)} className="h-4 w-4 rounded border-line-strong accent-[var(--color-ink)]" />
               {t(f.label)}
             </label>
           );
@@ -271,15 +271,15 @@ function ItemCard(props: {
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center gap-1 px-3 py-2">
-        <button type="button" onClick={props.onToggle} aria-expanded={props.open} className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-slate-800">
-          <span aria-hidden className={`text-slate-400 transition-transform ${props.open ? "rotate-90" : ""}`}>▸</span>
+        <button type="button" onClick={props.onToggle} aria-expanded={props.open} className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-ink">
+          <span aria-hidden className={`text-muted transition-transform ${props.open ? "rotate-90" : ""}`}>▸</span>
           <span className="truncate">{props.title || t("item.untitled")}</span>
         </button>
         <Button small variant="ghost" disabled={!props.canMoveUp} onClick={() => props.onMove(-1)} aria-label={t("action.moveUp")}>↑</Button>
         <Button small variant="ghost" disabled={!props.canMoveDown} onClick={() => props.onMove(1)} aria-label={t("action.moveDown")}>↓</Button>
-        <Button small variant="ghost" onClick={props.onRemove} aria-label={t("action.remove")} className="hover:text-red-600">✕</Button>
+        <Button small variant="ghost" onClick={props.onRemove} aria-label={t("action.remove")} className="hover:text-danger">✕</Button>
       </div>
-      {props.open && <div className="border-t border-slate-100 p-3">{props.children}</div>}
+      {props.open && <div className="border-t border-line p-3">{props.children}</div>}
     </Card>
   );
 }
@@ -301,7 +301,7 @@ function ListSection({ cv, section }: { cv: CVDocument; section: ListKey }) {
 
   return (
     <div className="space-y-2">
-      {items.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-center text-sm text-slate-500">{t("list.empty")}</p>}
+      {items.length === 0 && <p className="rounded-lg border border-dashed border-line-strong px-3 py-4 text-center text-sm text-muted">{t("list.empty")}</p>}
       {items.map((item, index) => (
         <ItemCard
           key={item.id}
@@ -372,15 +372,15 @@ function PersonalForm({ cv }: { cv: CVDocument }) {
         onChange={(key, value) => update((d) => void ((d.personal as Item)[key] = value), `personal.${key}`)}
       />
       <div>
-        <p className="mb-1 text-xs font-medium text-slate-600">{t("field.photo")}</p>
+        <p className="mb-1 text-xs font-medium text-ink-soft">{t("field.photo")}</p>
         <div className="flex items-center gap-3">
           {cv.personal.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={cv.personal.photo} alt="" className="h-14 w-14 rounded-full object-cover" />
           ) : (
-            <div className="h-14 w-14 rounded-full bg-slate-100" aria-hidden />
+            <div className="h-14 w-14 rounded-full bg-surface" aria-hidden />
           )}
-          <label className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-brand-500">
+          <label className="cursor-pointer rounded-lg border border-line-strong bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface focus-within:outline focus-within:outline-2 focus-within:outline-ink">
             {t("photo.choose")}
             <input
               type="file"
@@ -410,7 +410,7 @@ function PersonalForm({ cv }: { cv: CVDocument }) {
             </Button>
           )}
         </div>
-        <p className="mt-1 text-xs text-slate-400">{photoError ? <span className="text-red-600">{photoError}</span> : t("photo.hint")}</p>
+        <p className="mt-1 text-xs text-muted">{photoError ? <span className="text-danger">{photoError}</span> : t("photo.hint")}</p>
       </div>
     </div>
   );
@@ -436,7 +436,7 @@ function SkillsForm({ cv }: { cv: CVDocument }) {
   const update = useEditor((s) => s.update);
   return (
     <div className="space-y-2">
-      {cv.skills.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-center text-sm text-slate-500">{t("skills.empty")}</p>}
+      {cv.skills.length === 0 && <p className="rounded-lg border border-dashed border-line-strong px-3 py-4 text-center text-sm text-muted">{t("skills.empty")}</p>}
       {cv.skills.map((group, index) => (
         <Card key={group.id} className="space-y-2 p-3">
           <div className="flex items-end gap-2">
@@ -450,7 +450,7 @@ function SkillsForm({ cv }: { cv: CVDocument }) {
                 />
               )}
             </Field>
-            <Button variant="ghost" onClick={() => update((d) => void d.skills.splice(index, 1))} aria-label={t("action.remove")} className="hover:text-red-600">✕</Button>
+            <Button variant="ghost" onClick={() => update((d) => void d.skills.splice(index, 1))} aria-label={t("action.remove")} className="hover:text-danger">✕</Button>
           </div>
           <Field label={t("field.skills")} hint={t("hint.tags")}>
             {(id) => (
@@ -488,7 +488,7 @@ function CustomSectionsForm({ cv }: { cv: CVDocument }) {
   const update = useEditor((s) => s.update);
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-500">{t("custom.help")}</p>
+      <p className="text-sm text-muted">{t("custom.help")}</p>
       {cv.customSections.map((section, si) => (
         <Card key={section.id} className="space-y-3 p-3">
           <div className="flex items-end gap-2">
@@ -497,10 +497,10 @@ function CustomSectionsForm({ cv }: { cv: CVDocument }) {
                 <TextInput id={id} value={section.title} placeholder={t("placeholder.customSection")} onChange={(e) => update((d) => void (d.customSections[si]!.title = e.target.value), `custom.${section.id}.title`)} />
               )}
             </Field>
-            <Button variant="ghost" onClick={() => update((d) => void d.customSections.splice(si, 1))} aria-label={t("action.remove")} className="hover:text-red-600">✕</Button>
+            <Button variant="ghost" onClick={() => update((d) => void d.customSections.splice(si, 1))} aria-label={t("action.remove")} className="hover:text-danger">✕</Button>
           </div>
           {section.items.map((item, ii) => (
-            <div key={item.id} className="rounded-lg border border-slate-200 p-3">
+            <div key={item.id} className="rounded-lg border border-line p-3">
               <Fields
                 item={item}
                 fields={customItemFields}

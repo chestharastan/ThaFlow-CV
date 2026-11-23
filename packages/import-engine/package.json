@@ -10,5 +10,9 @@
     "@thaflow/rule-engine": "workspace:*",
     "jszip": "^3.10.1",
     "pdfjs-dist": "^5.0.0"
+  },
+  "devDependencies": {
+    "@thaflow/export-engine": "workspace:*",
+    "@thaflow/template-engine": "workspace:*"
   }
 }

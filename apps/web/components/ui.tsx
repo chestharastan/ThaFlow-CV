@@ -11,8 +11,9 @@ import {
 } from "react";
 
 /**
- * Shared primitives for the whole app. Text on white, one neutral scale, one
- * filled element (the primary action) per screen. See app/globals.css for tokens.
+ * Shared primitives for the whole app, in the ThaFlow family look: white
+ * surfaces on a warm off-white page, near-black ink, one filled element (the
+ * primary action) per screen. See app/globals.css for tokens.
  */
 
 export const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
@@ -21,16 +22,16 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ControlSize = "sm" | "md" | "lg";
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: "bg-brand text-on-brand hover:bg-brand-hover disabled:bg-line disabled:text-faint",
-  secondary: "border border-line-strong bg-paper text-ink hover:border-ink disabled:border-line disabled:text-faint",
+  primary: "border border-brand bg-brand text-on-brand shadow-soft hover:border-brand-hover hover:bg-brand-hover disabled:border-line disabled:bg-surface disabled:text-faint disabled:shadow-none",
+  secondary: "border border-line bg-paper text-ink shadow-soft hover:border-line-strong hover:bg-surface disabled:text-faint disabled:shadow-none disabled:hover:bg-paper",
   ghost: "text-ink-soft hover:bg-surface hover:text-ink disabled:text-faint disabled:hover:bg-transparent",
-  danger: "border border-line-strong bg-paper text-danger hover:border-danger disabled:text-faint",
+  danger: "border border-line bg-paper text-danger shadow-soft hover:border-danger disabled:text-faint disabled:shadow-none",
 };
 
 const buttonSizes: Record<ControlSize, string> = {
-  sm: "h-8 rounded-md px-2.5 text-xs",
-  md: "h-10 rounded-lg px-4 text-sm",
-  lg: "h-13 rounded-xl px-6 text-base",
+  sm: "h-8 rounded-lg px-2.5 text-[13px]",
+  md: "h-9 rounded-lg px-3.5 text-sm",
+  lg: "h-12 rounded-xl px-5 text-[15px]",
 };
 
 export function Button({
@@ -60,13 +61,15 @@ export function Button({
 }
 
 const controlBase =
-  "w-full border border-line-strong bg-paper text-ink placeholder:text-faint transition-colors hover:border-muted focus:border-ink focus:outline-none focus-visible:outline-none focus:ring-1 focus:ring-ink";
+  "w-full border border-line-strong bg-paper text-ink placeholder:text-faint transition-[border-color,box-shadow] hover:border-faint focus:border-ink focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-ink/10";
 const controlSizes: Record<ControlSize, string> = {
-  sm: "rounded-md px-2.5 py-1.5 text-sm",
+  sm: "rounded-lg px-2.5 py-1.5 text-sm",
   md: "rounded-lg px-3 py-2 text-sm",
-  lg: "rounded-xl px-4 py-3.5 text-lg",
+  lg: "rounded-xl px-4 py-3 text-base",
 };
-const controlInvalid = "border-danger hover:border-danger focus:border-danger focus:ring-danger";
+/** Fixed heights for single-line controls so an input and a select on one row line up exactly. */
+const controlHeights: Record<ControlSize, string> = { sm: "h-8", md: "h-10", lg: "h-12" };
+const controlInvalid = "border-danger hover:border-danger focus:border-danger focus:ring-danger/15";
 
 /** Label + control + hint or error. Pass the generated id to the control. */
 export function Field({
@@ -110,7 +113,7 @@ export function TextInput({
     <input
       {...props}
       aria-invalid={invalid || undefined}
-      className={cx(controlBase, controlSizes[controlSize], invalid && controlInvalid, className)}
+      className={cx(controlBase, controlSizes[controlSize], controlHeights[controlSize], invalid && controlInvalid, className)}
     />
   );
 }
@@ -136,7 +139,7 @@ export function Select({
   className,
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & { controlSize?: ControlSize }) {
-  return <select {...props} className={cx(controlBase, controlSizes[controlSize], "appearance-auto", className)} />;
+  return <select {...props} className={cx(controlBase, controlSizes[controlSize], controlHeights[controlSize], "py-0!", className)} />;
 }
 
 /** Chip input for short lists (skills, technologies). Enter or comma adds; Backspace on empty removes the last. */
@@ -173,21 +176,21 @@ export function TagInput({
   return (
     <div
       className={cx(
-        "flex flex-wrap gap-1.5 border border-line-strong bg-paper transition-colors hover:border-muted focus-within:border-ink focus-within:ring-1 focus-within:ring-ink",
-        large ? "rounded-xl p-2.5" : "rounded-lg p-1.5",
+        "flex flex-wrap gap-1.5 border border-line-strong bg-paper transition-[border-color,box-shadow] hover:border-faint focus-within:border-ink focus-within:ring-2 focus-within:ring-ink/10",
+        large ? "rounded-xl p-2" : "rounded-lg p-1.5",
       )}
     >
       {values.map((value, i) => (
         <span
           key={`${value}-${i}`}
-          className={cx("inline-flex items-center gap-1 rounded-md bg-surface text-ink", large ? "py-1 pl-3 pr-1.5 text-base" : "py-0.5 pl-2 pr-1 text-sm")}
+          className={cx("inline-flex items-center gap-1 rounded-md bg-cream text-ink", large ? "py-1 pl-2.5 pr-1 text-[15px]" : "py-0.5 pl-2 pr-1 text-sm")}
         >
           {value}
           <button
             type="button"
             aria-label={`${removeLabel}: ${value}`}
             onClick={() => onChange(values.filter((_, j) => j !== i))}
-            className="rounded px-1 text-muted hover:bg-line hover:text-ink"
+            className="rounded px-1 text-muted hover:bg-cream-strong hover:text-ink"
           >
             ×
           </button>
@@ -218,7 +221,7 @@ export function TagInput({
         }}
         className={cx(
           "min-w-[8rem] flex-1 border-0 bg-transparent text-ink outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none",
-          large ? "px-1.5 py-1 text-lg" : "px-1.5 py-1 text-sm",
+          large ? "px-1.5 py-1 text-base" : "px-1.5 py-1 text-sm",
         )}
       />
     </div>
@@ -226,5 +229,5 @@ export function TagInput({
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("rounded-xl border border-line bg-paper", className)}>{children}</div>;
+  return <div className={cx("rounded-2xl border border-line bg-paper shadow-soft", className)}>{children}</div>;
 }

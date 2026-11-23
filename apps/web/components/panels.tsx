@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ExtractionResult } from "@thaflow/ai-engine";
 import { createEducation, createExperience, createId, createProject, createSkillGroup, type CVDocument, type CVRevision, type SectionKey } from "@thaflow/cv-core";
 import type { MessageKey } from "@thaflow/localization";
 import { classifyText, dedupeSkills, extractYears, normalizeWhitespace, splitSkillList, type ClassifiedSection, type RuleReport } from "@thaflow/rule-engine";
-import { COLOR_PRESETS, FONT_OPTIONS, getTemplate, resolveAppearance, templates } from "@thaflow/template-engine";
+import { COLOR_PRESETS, FONT_OPTIONS, getTemplate, resolveAppearance } from "@thaflow/template-engine";
 import { useAI } from "@/lib/ai";
 import { getStore, useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
@@ -21,35 +22,18 @@ export function DesignPanel({ cv }: { cv: CVDocument }) {
   const look = resolveAppearance(template, cv.appearance);
   return (
     <div className="space-y-6">
-      <section>
-        <h3 className="mb-2 text-sm font-semibold text-slate-800">{t("design.template")}</h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {templates.map((tpl) => {
-            const selected = tpl.id === template.id;
-            return (
-              <button
-                key={tpl.id}
-                type="button"
-                aria-pressed={selected}
-                data-testid={`template-${tpl.id}`}
-                onClick={() => update((d) => void (d.appearance.templateId = tpl.id))}
-                className={cx("overflow-hidden rounded-lg border-2 bg-white text-left transition-colors", selected ? "border-brand-600" : "border-slate-200 hover:border-slate-400")}
-              >
-                <div className="pointer-events-none h-40 overflow-hidden bg-slate-50" aria-hidden>
-                  <ScaledPreview cv={cv} template={tpl} />
-                </div>
-                <div className="border-t border-slate-100 px-2 py-1.5">
-                  <div className="text-xs font-semibold text-slate-800">{tpl.name}</div>
-                  <div className="truncate text-[11px] text-slate-500">{t(`template.${tpl.id}` as MessageKey)}</div>
-                </div>
-              </button>
-            );
-          })}
+      <section className="flex items-center justify-between gap-3 rounded-xl border border-line bg-paper px-4 py-3 shadow-soft">
+        <div className="min-w-0">
+          <div className="text-xs text-muted">{t("design.template")}</div>
+          <div className="truncate text-sm font-medium text-ink" data-testid="current-template">{template.name}</div>
         </div>
+        <Link href={`/templates/?id=${cv.id}`} className="text-sm font-medium text-ink underline underline-offset-4">
+          {t("design.change")}
+        </Link>
       </section>
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold text-slate-800">{t("design.color")}</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ink">{t("design.color")}</h3>
         <div className="flex flex-wrap items-center gap-2">
           {COLOR_PRESETS.map((color) => (
             <button
@@ -59,11 +43,11 @@ export function DesignPanel({ cv }: { cv: CVDocument }) {
               aria-pressed={look.primary.toLowerCase() === color}
               onClick={() => update((d) => void (d.appearance.primaryColor = color))}
               style={{ background: color }}
-              className={cx("h-7 w-7 rounded-full ring-offset-2", look.primary.toLowerCase() === color && "ring-2 ring-slate-900")}
+              className={cx("h-7 w-7 rounded-full ring-offset-2", look.primary.toLowerCase() === color && "ring-2 ring-ink")}
             />
           ))}
-          <label className="flex items-center gap-1.5 text-xs text-slate-600">
-            <input type="color" value={look.primary} onChange={(e) => update((d) => void (d.appearance.primaryColor = e.target.value), "color")} className="h-7 w-9 cursor-pointer rounded border border-slate-300 bg-white" />
+          <label className="flex items-center gap-1.5 text-xs text-ink-soft">
+            <input type="color" value={look.primary} onChange={(e) => update((d) => void (d.appearance.primaryColor = e.target.value), "color")} className="h-7 w-9 cursor-pointer rounded border border-line-strong bg-paper" />
             {t("design.customColor")}
           </label>
           {cv.appearance.primaryColor && (
@@ -75,7 +59,7 @@ export function DesignPanel({ cv }: { cv: CVDocument }) {
       </section>
 
       <section>
-        <Field label={t("design.font")} hint={t("design.fontHint")}>
+        <Field label={t("design.font")}>
           {(id) => (
             <Select id={id} value={cv.appearance.fontFamily} onChange={(e) => update((d) => void (d.appearance.fontFamily = e.target.value))}>
               <option value="">{t("design.templateDefault")}</option>
@@ -90,13 +74,13 @@ export function DesignPanel({ cv }: { cv: CVDocument }) {
       </section>
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold text-slate-800">{t("design.sections")}</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ink">{t("design.sections")}</h3>
         <ul className="space-y-1">
           {cv.appearance.sectionOrder.map((key, index) => {
             const hidden = cv.appearance.hiddenSections.includes(key);
             return (
-              <li key={key} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1">
-                <span className={cx("flex-1 text-sm", hidden ? "text-slate-400 line-through" : "text-slate-800")}>{t(`section.${key}` as MessageKey)}</span>
+              <li key={key} className="flex items-center gap-1 rounded-lg border border-line bg-paper px-2 py-1">
+                <span className={cx("flex-1 text-sm", hidden ? "text-muted line-through" : "text-ink")}>{t(`section.${key}` as MessageKey)}</span>
                 <Button small variant="ghost" disabled={index === 0} aria-label={t("action.moveUp")} onClick={() => update((d) => swap(d.appearance.sectionOrder, index, index - 1))}>↑</Button>
                 <Button small variant="ghost" disabled={index === cv.appearance.sectionOrder.length - 1} aria-label={t("action.moveDown")} onClick={() => update((d) => swap(d.appearance.sectionOrder, index, index + 1))}>↓</Button>
                 <Button
@@ -127,9 +111,9 @@ function swap<T>(list: T[], a: number, b: number) {
 /* ---------- Check (rule engine) ---------- */
 
 const severityStyle = {
-  error: "border-red-200 bg-red-50 text-red-800",
-  warning: "border-amber-200 bg-amber-50 text-amber-900",
-  info: "border-slate-200 bg-white text-slate-700",
+  error: "border-danger/25 bg-danger-soft text-danger",
+  warning: "border-warn/25 bg-warn-soft text-warn",
+  info: "border-line bg-paper text-ink-soft",
 } as const;
 
 export function CheckPanel({ cv, report, onOpenSection }: { cv: CVDocument; report: RuleReport; onOpenSection(section: SectionKey | "personal"): void }) {
@@ -139,15 +123,15 @@ export function CheckPanel({ cv, report, onOpenSection }: { cv: CVDocument; repo
     <div className="space-y-4">
       <div>
         <div className="mb-1 flex justify-between text-sm">
-          <span className="font-semibold text-slate-800">{t("check.completeness")}</span>
-          <span className="tabular-nums text-slate-600">{report.completeness}%</span>
+          <span className="font-semibold text-ink">{t("check.completeness")}</span>
+          <span className="tabular-nums text-ink-soft">{report.completeness}%</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={report.completeness} aria-valuemin={0} aria-valuemax={100} aria-label={t("check.completeness")}>
-          <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${report.completeness}%` }} />
+        <div className="h-2 overflow-hidden rounded-full bg-surface" role="progressbar" aria-valuenow={report.completeness} aria-valuemin={0} aria-valuemax={100} aria-label={t("check.completeness")}>
+          <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${report.completeness}%` }} />
         </div>
       </div>
       {report.results.length === 0 ? (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">{t("check.allGood")}</p>
+        <p className="rounded-lg border border-ok/25 bg-ok-soft px-3 py-3 text-sm text-ok">{t("check.allGood")}</p>
       ) : (
         <ul className="space-y-2">
           {report.results.map((r, i) => (
@@ -175,7 +159,6 @@ export function CheckPanel({ cv, report, onOpenSection }: { cv: CVDocument; repo
           ))}
         </ul>
       )}
-      <p className="text-xs text-slate-400">{t("check.note")}</p>
     </div>
   );
 }
@@ -190,7 +173,6 @@ export function HistoryPanel({ cv }: { cv: CVDocument }) {
   useEffect(reload, [cv.id]);
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-500">{t("history.help")}</p>
       <Button
         onClick={async () => {
           await getStore().addRevision(cv);
@@ -200,12 +182,12 @@ export function HistoryPanel({ cv }: { cv: CVDocument }) {
         {t("history.saveNow")}
       </Button>
       {revisions.length === 0 ? (
-        <p className="text-sm text-slate-400">{t("history.empty")}</p>
+        <p className="text-sm text-muted">{t("history.empty")}</p>
       ) : (
         <ul className="space-y-1">
           {revisions.map((rev) => (
-            <li key={rev.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-              <span className="text-slate-700">{new Date(rev.createdAt).toLocaleString(settings.uiLanguage === "km" ? "km-KH" : "en-GB")}</span>
+            <li key={rev.id} className="flex items-center justify-between rounded-lg border border-line bg-paper px-3 py-2 text-sm">
+              <span className="text-ink-soft">{new Date(rev.createdAt).toLocaleString(settings.uiLanguage === "km" ? "km-KH" : "en-GB")}</span>
               <Button small onClick={() => replace({ ...rev.snapshot, id: cv.id })}>
                 {t("history.restore")}
               </Button>
@@ -305,41 +287,39 @@ export function QuickAdd({ cv, onAdded }: { cv: CVDocument; onAdded(section: Sec
   if (!open) {
     return (
       <Button variant="ghost" small onClick={() => setOpen(true)} data-testid="quick-add">
-        ⚡ {t("quick.open")}
+        + {t("quick.open")}
       </Button>
     );
   }
   return (
     <Card className="space-y-3 p-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-800">{t("quick.title")}</h3>
+        <h3 className="text-sm font-semibold text-ink">{t("quick.title")}</h3>
         <Button small variant="ghost" onClick={() => { setOpen(false); setDraft(null); }}>✕</Button>
       </div>
       {!draft ? (
         <>
-          <p className="text-xs text-slate-500">{state === "unavailable" ? t("quick.helpRules") : t("quick.helpAI")}</p>
           <TextArea value={text} onChange={(e) => setText(e.target.value)} placeholder={t("quick.placeholder")} aria-label={t("quick.title")} data-testid="quick-text" />
-          {state === "cloud-ready" && <p className="text-[11px] text-slate-400">{t("ai.cloudNotice")}</p>}
+          {state === "cloud-ready" && <p className="text-[11px] text-muted">{t("ai.cloudNotice")}</p>}
           <Button variant="primary" small disabled={busy || !text.trim()} onClick={analyze} data-testid="quick-analyze">
             {busy ? t("ai.working") : t("quick.analyze")}
           </Button>
         </>
       ) : (
         <>
-          <p className="text-sm text-slate-700">
+          <p className="text-sm text-ink-soft">
             {t("quick.detected")} <strong>{t(sectionLabel[draft.section])}</strong>
           </p>
-          <dl className="space-y-1 rounded-lg bg-slate-50 p-2 text-sm">
+          <dl className="space-y-1 rounded-lg bg-transparent p-2 text-sm">
             {draft.fields.map(([label, value]) => (
               <div key={label} className="flex gap-2">
-                <dt className="w-28 shrink-0 text-xs text-slate-500">{t(label)}</dt>
-                <dd className="whitespace-pre-wrap text-slate-900">{value}</dd>
+                <dt className="w-28 shrink-0 text-xs text-muted">{t(label)}</dt>
+                <dd className="whitespace-pre-wrap text-ink">{value}</dd>
               </div>
             ))}
           </dl>
-          {draft.missing.length > 0 && <p className="text-xs text-amber-700">{t("quick.missing", { fields: draft.missing.join(", ") })}</p>}
-          {error && <p className="text-xs text-amber-700">{error}</p>}
-          <p className="text-xs text-slate-500">{t("quick.review")}</p>
+          {draft.missing.length > 0 && <p className="text-xs text-warn">{t("quick.missing", { fields: draft.missing.join(", ") })}</p>}
+          {error && <p className="text-xs text-warn">{error}</p>}
           <div className="flex gap-2">
             <Button
               variant="primary"

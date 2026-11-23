@@ -1,8 +1,9 @@
 // End-to-end smoke test against the static build (run `pnpm build` first, then `pnpm e2e`).
-// Covers the release acceptance criteria: create/save/reopen without AI, template switch, exports,
-// Khmer rendering, offline use, no cloud requests unless enabled, minimal cloud payload, and clearing data.
+// Walks the product the way a person does: landing → questions → choose a template → finished CV,
+// then checks the promises the product makes: works without AI, survives a reload, exports,
+// reads an existing CV on the device, Khmer, offline, no network unless cloud AI is enabled, and deletion.
 import { createServer } from "node:http";
-import { readFile, mkdir } from "node:fs/promises";
+import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +12,7 @@ import assert from "node:assert/strict";
 const { chromium } = createRequire(import.meta.url)("playwright");
 const root = fileURLToPath(new URL("../out", import.meta.url));
 const shots = fileURLToPath(new URL("./screenshots", import.meta.url));
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".woff": "font/woff", ".webmanifest": "application/manifest+json", ".txt": "text/plain" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".woff": "font/woff", ".webmanifest": "application/manifest+json", ".txt": "text/plain" };
 
 const site = createServer(async (req, res) => {
   let path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
@@ -33,7 +34,7 @@ const ai = createServer((req, res) => {
   req.on("end", () => {
     aiRequests.push({ url: req.url, headers: req.headers, body: JSON.parse(raw) });
     res.writeHead(200, { ...cors, "Content-Type": "application/json" });
-    res.end(JSON.stringify({ success: true, result: { text: "Led a team of 12 building web applications with React." } }));
+    res.end(JSON.stringify({ success: true, result: { text: "Led a team of 12 preparing monthly financial reports." } }));
   });
 });
 
@@ -54,228 +55,313 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 
-const field = (label) => page.getByLabel(label, { exact: true });
-const preview = page.getByTestId("preview");
-const saved = () => page.waitForFunction(() => document.querySelector('[data-testid="save-state"]')?.textContent?.startsWith("Saved"));
+const id = (testId) => page.getByTestId(testId);
+const next = () => id("create-next").click();
+const preview = id("preview");
+const saved = () => page.waitForFunction(() => document.querySelector('[data-testid="save-state"]')?.textContent?.trim() === "Saved");
+const shot = (name) => page.screenshot({ path: join(shots, `${name}.png`) });
+
+/** Answer the questions as a new person and stop at the template chooser. */
+async function answerQuestions({ khmer = false } = {}) {
+  await id(khmer ? "create-language-km" : "create-language-en").click();
+  await id("create-name").fill(khmer ? "សុខ ដារ៉ា" : "Sok Dara");
+  await next();
+  await id("create-title").fill(khmer ? "គណនេយ្យករ" : "Accountant");
+  await next();
+  await id("create-email").fill("dara@example.com");
+  await id("create-phone").fill("+855 12 345 678");
+  await id("create-location").fill(khmer ? "ភ្នំពេញ កម្ពុជា" : "Phnom Penh, Cambodia");
+  await next();
+  await id("create-worked-yes").click();
+  await id("create-work-position").fill(khmer ? "គណនេយ្យករ" : "Accountant");
+  await id("create-work-company").fill(khmer ? "ក្រុមហ៊ុន អេស៊ីអឹម" : "Acme Trading");
+  await id("create-work-start-month").selectOption("01");
+  await id("create-work-start-year").fill("2022");
+  if (khmer) await id("create-work-current").check();
+  else {
+    await id("create-work-end-month").selectOption("06");
+    await id("create-work-end-year").fill("2024");
+  }
+  await id("create-work-description").fill(khmer ? "រៀបចំរបាយការណ៍ហិរញ្ញវត្ថុប្រចាំខែ។" : "i prepare monthly financial reports");
+  await next();
+  await id("create-entry-list").waitFor();
+  await next();
+  await id("create-education-institution").fill(khmer ? "សាកលវិទ្យាល័យភូមិន្ទភ្នំពេញ" : "Royal University of Phnom Penh");
+  await id("create-education-degree").fill(khmer ? "បរិញ្ញាបត្រ" : "Bachelor's degree");
+  await id("create-education-field").fill(khmer ? "គណនេយ្យ" : "Accounting");
+  await id("create-education-end-year").fill("2021");
+  await next();
+  await id("create-entry-list").waitFor();
+  await next();
+  await page.locator('[data-testid="create-skills"] input, input[data-testid="create-skills"]').first().fill("Excel, QuickBooks, Tax filing,");
+  await next();
+  await id("create-language-name").first().fill(khmer ? "ខ្មែរ" : "Khmer");
+  await next();
+  await id("create-about").fill(khmer ? "គណនេយ្យករដែលមានបទពិសោធន៍បីឆ្នាំ។" : "Accountant with three years of experience in monthly reporting.");
+  await next();
+  await page.waitForURL(/\/templates\//);
+  await id("template-grid").waitFor();
+}
 
 try {
-  // --- Create a CV with the guided questionnaire, no AI ---
+  // --- Landing: says what it does, one way forward ---
   await page.goto(`${origin}/`);
-  await page.getByText("Create your first CV").waitFor();
-  await page.getByTestId("new-cv").click();
-  await page.getByTestId("new-title").fill("Smoke test CV");
-  await page.getByTestId("target-professional").click();
-  await page.getByTestId("start-guide").click();
-  await page.getByText("Who are you?").waitFor();
-  await field("Full name").fill("Sok Dara");
-  await field("Email").fill("dara@");
-  await page.getByText("is not a valid email address").waitFor(); // inline rule feedback
-  await field("Email").fill("dara@example.com");
-  await field("Phone").fill("+855 12 345 678");
-  await page.getByTestId("guide-next").click();
+  await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
+  assert.equal(await id("landing-cv").count(), 0);
+  await shot("landing");
+  await id("landing-create").click();
 
-  await page.getByTestId("add-experiences").click();
-  await field("Job title").fill("Frontend Developer");
-  await field("Company or organization").fill("Acme Co");
-  await field("Start date").fill("2022-01");
-  await field("End date").fill("2024-06");
-  await field("Description").fill("i build websites using React");
-  await page.getByTestId("guide-next").click();
+  // --- Questions: new person, no AI ---
+  await page.getByRole("heading", { name: "Do you already have a CV?" }).waitFor();
+  await shot("question-start");
+  await id("create-start-no").click();
+  await id("create-language-en").click();
+  await id("create-name").waitFor();
+  assert.equal(await id("create-next").isDisabled(), true, "name is required");
+  await page.goBack(); // every question is a URL
+  await id("create-language-en").waitFor();
+  await answerQuestions();
+  step("a new person can answer the questions and reach the templates, with no AI");
 
-  await page.getByTestId("add-education").click();
-  await field("School or university").fill("Royal University of Phnom Penh");
-  await field("Degree or qualification").fill("BSc");
-  await page.getByTestId("guide-next").click();
-
-  // Rule-based quick add: no AI involved.
-  await page.getByTestId("quick-add").click();
-  await page.getByTestId("quick-text").fill("React, TypeScript, SQL");
-  await page.getByTestId("quick-analyze").click();
-  await page.getByText("This looks like:").waitFor();
-  assert.match(await page.getByText("This looks like:").textContent(), /Skills/);
-  await page.getByTestId("quick-confirm").click();
-  await preview.getByText("TypeScript", { exact: true }).waitFor();
-  step("guided questionnaire + rule-based quick add work without AI");
-
-  for (let i = 0; i < 4; i++) await page.getByTestId("guide-next").click();
-  await page.getByTestId("guide-finish").click();
-  await page.waitForURL(/\/editor\//);
-  await preview.getByText("Sok Dara").waitFor();
-  await preview.getByText("Jan 2022 – Jun 2024").waitFor();
-  await page.screenshot({ path: join(shots, "editor-en.png") });
-
-  // --- Persistence across restart ---
+  // --- Reload mid-flow keeps answers (every question is a URL, the CV is already saved) ---
+  await page.goBack();
+  await id("create-about").waitFor();
   await page.reload();
-  await preview.getByText("Frontend Developer").waitFor();
-  step("CV survives a reload (autosaved to IndexedDB)");
+  assert.match(await id("create-about").inputValue(), /three years of experience/);
+  await next();
+  await id("template-grid").waitFor();
+  step("answers survive Back and a reload");
 
-  // --- Undo / redo ---
-  await field("Full name").fill("Sok Dara Edited");
-  await preview.getByText("Sok Dara Edited").waitFor();
-  await page.getByLabel("Undo").click();
-  await preview.getByText("Sok Dara", { exact: true }).waitFor();
-  step("undo restores the previous value");
+  // --- Choose a template ---
+  assert.equal(await id("template-grid").locator('[data-testid^="template-"]').count(), 30);
+  await id("filter-classic").click();
+  const classic = await id("template-grid").locator('[data-testid^="template-"]').count();
+  assert.ok(classic >= 5 && classic < 30, `classic filter shows ${classic}`);
+  await id("filter-all").click();
+  await id("template-timeline").click();
+  assert.equal((await id("selected-template").textContent()).trim(), "Timeline");
+  await shot("templates");
+  await id("use-template").click();
+  await page.waitForURL(/\/editor\//);
+  await preview.locator('[data-template="timeline"]').waitFor();
+  await preview.getByText("Sok Dara").first().waitFor();
+  await preview.getByText(/Jan 2022 – Jun 2024/i).first().waitFor();
+  await shot("editor");
+  step("30 templates, filter, choose one, land on the finished CV");
+  const cvUrl = page.url();
 
-  // --- Template change keeps content ---
-  const textBefore = await preview.locator(".cv-main").innerText();
-  await page.getByTestId("tab-design").click();
-  await page.getByTestId("template-corporate").click();
-  await preview.locator('[data-template="corporate"]').waitFor();
-  for (const expected of ["Frontend Developer", "Acme Co", "Royal University of Phnom Penh"]) assert.ok((await preview.innerText()).toLowerCase().includes(expected.toLowerCase()));
-  assert.ok(textBefore.includes("Frontend Developer"));
-  await page.getByTestId("template-modern").click();
-  await preview.locator('[data-template="modern"]').waitFor();
-  await page.screenshot({ path: join(shots, "design-modern.png") });
-  step("changing template keeps content");
-
-  // --- Check tab ---
-  await page.getByTestId("tab-check").click();
+  // --- Persistence, undo, editing, template change keeps content ---
+  await page.reload();
+  await preview.getByText("Acme Trading").first().waitFor();
+  await page.getByLabel("Full name", { exact: true }).fill("Sok Dara Edited");
+  await preview.getByText("Sok Dara Edited").first().waitFor();
+  await id("undo").click();
+  await preview.getByText("Sok Dara", { exact: true }).first().waitFor();
+  await id("change-template").click();
+  await id("template-ats").click();
+  await id("use-template").click();
+  await preview.locator('[data-template="ats"]').waitFor();
+  for (const expected of ["Accountant", "Acme Trading", "Royal University of Phnom Penh", "QuickBooks"]) {
+    assert.ok((await preview.innerText()).includes(expected), `missing after template change: ${expected}`);
+  }
+  await id("tab-check").click();
   await page.getByText("Completeness").waitFor();
-  await page.getByText("Add a short professional summary").waitFor();
-  step("rule engine reports issues");
+  await id("tab-design").click();
+  assert.equal((await id("current-template").textContent()).trim().length > 0, true);
+  await id("tab-content").click();
+  step("CV survives reload; undo works; changing template keeps content; review and style tools open");
 
-  // --- Exports ---
+  // --- Downloads ---
   await saved();
-  await page.getByTestId("export").click();
-  const [docx] = await Promise.all([page.waitForEvent("download"), page.getByTestId("export-docx").click()]);
+  await id("export").click();
+  const [docx] = await Promise.all([page.waitForEvent("download"), id("export-docx").click()]);
   assert.equal(docx.suggestedFilename(), "Sok-Dara.docx");
-  const docxBytes = await readFile(await docx.path());
-  assert.equal(docxBytes.subarray(0, 2).toString(), "PK");
-  await page.getByTestId("export").click();
-  const [json] = await Promise.all([page.waitForEvent("download"), page.getByTestId("export-json").click()]);
+  const docxPath = join(shots, "Sok-Dara.docx");
+  await docx.saveAs(docxPath);
+  assert.equal((await readFile(docxPath)).subarray(0, 2).toString(), "PK");
+  await id("export").click();
+  const [json] = await Promise.all([page.waitForEvent("download"), id("export-json").click()]);
   const backup = JSON.parse(await readFile(await json.path(), "utf8"));
   assert.equal(backup.format, "thaflow-cv");
   assert.equal(backup.cvs[0].personal.fullName, "Sok Dara");
-  step("DOCX and JSON backup download");
-
   await page.emulateMedia({ media: "print" });
   assert.equal(await page.locator(".no-print").first().isVisible(), false);
   assert.equal(await page.locator(".print-only .cv").isVisible(), true);
-  const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true, path: join(shots, "cv-en.pdf") });
+  const pdfPath = join(shots, "Sok-Dara.pdf");
+  const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true, path: pdfPath });
   assert.equal(pdf.subarray(0, 4).toString(), "%PDF");
   await page.emulateMedia({ media: null });
-  step("print stylesheet shows only the CV; PDF renders");
+  step("Word and backup download; print shows only the CV and makes a PDF");
 
-  // --- AI off: nothing left the origin, and no AI buttons are offered ---
-  await page.getByTestId("tab-content").click();
-  await page.getByTestId("section-summary").click();
+  // --- AI off: no AI controls, nothing left the origin ---
+  await id("section-experiences").click();
   assert.equal(await page.getByText("Improve wording").count(), 0);
   assert.deepEqual(external, []);
   step("with AI off there are no AI controls and zero cross-origin requests");
 
-  // --- Cloud AI needs endpoint + consent ---
-  const cvUrl = page.url();
+  // --- Existing CV: read a Word file and a PDF on the device ---
+  for (const [kind, file] of [["Word", docxPath], ["PDF", pdfPath]]) {
+    await page.goto(`${origin}/create/`);
+    await id("create-start-yes").click();
+    await id("create-source-private").waitFor(); // the one line that says the file stays on the device
+    await id("create-file-input").setInputFiles(file);
+    await id("create-found").waitFor({ timeout: 30000 });
+    assert.match(await id("create-found-name").textContent(), /Sok Dara/, `${kind}: name not recognised`);
+    await next();
+    await id(`create-language-en`).click();
+    assert.equal(await id("create-name").inputValue(), "Sok Dara", `${kind}: name not pre-filled`);
+    await next();
+    await next();
+    assert.equal(await id("create-email").inputValue(), "dara@example.com", `${kind}: email not pre-filled`);
+    await next();
+    await id("create-entry-list").waitFor(); // imported jobs go straight to the list
+    assert.match(await id("create-entry-list").innerText(), /Acme Trading/, `${kind}: job not recognised`);
+  }
+  await page.goto(`${origin}/create/`);
+  await id("create-start-yes").click();
+  await id("create-file-input").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
+  await id("create-import-error").waitFor();
+  await id("create-source-type").click(); // has a CV but would rather type: same questions as a new person
+  await id("create-language-en").waitFor();
+  assert.deepEqual(external, [], "importing a file must not touch the network");
+  step("an existing CV (Word and PDF) is read on the device and pre-fills the answers; other files are refused");
+
+  // --- Cloud AI needs an address and explicit consent ---
   await page.goto(`${origin}/settings/`);
-  await page.getByTestId("ai-cloud").check();
-  await page.getByTestId("ai-endpoint").fill(`http://127.0.0.1:${aiPort}`);
-  await page.getByTestId("ai-endpoint").blur();
-  await page.getByText("AI is off.").waitFor(); // still unavailable without consent
-  await page.getByTestId("ai-consent").check();
+  await id("ai-cloud").check();
+  await id("ai-endpoint").fill(`http://127.0.0.1:${aiPort}`);
+  await id("ai-endpoint").blur();
+  await page.getByText("AI is off.").waitFor();
+  await id("ai-consent").check();
   await page.getByText("Cloud AI is ready.").waitFor();
-  await page.waitForTimeout(500); // let the IndexedDB write commit before leaving the page
-  await page.reload(); // the choice must have been persisted, not just held in memory
+  await page.waitForTimeout(500);
+  await page.reload();
   await page.getByText("Cloud AI is ready.").waitFor();
   await page.goto(cvUrl);
-  await page.getByTestId("section-experiences").click();
+  await id("view-edit").click({ timeout: 2000 }).catch(() => {});
+  await id("section-experiences").click();
   assert.equal(aiRequests.length, 0);
   await page.getByRole("button", { name: /Improve wording/ }).click();
-  await page.getByTestId("suggestion").waitFor();
+  await id("suggestion").waitFor();
   assert.equal(aiRequests.length, 1);
-  assert.deepEqual(aiRequests[0].body, { task: "rewrite_text", language: "en", content: { text: "i build websites using React", kind: "experience", position: "Frontend Developer" } });
+  assert.deepEqual(aiRequests[0].body, { task: "rewrite_text", language: "en", content: { text: "i prepare monthly financial reports", kind: "experience", position: "Accountant" } });
   assert.equal(aiRequests[0].headers.cookie, undefined);
   assert.equal(aiRequests[0].headers.referer, undefined);
-  // The mock invents "team of 12": integrity warnings must be shown, and nothing applied yet.
   await page.getByText('Contains "12", which is not in your original text.').waitFor();
-  assert.equal(await field("Description").inputValue(), "i build websites using React");
-  await page.screenshot({ path: join(shots, "ai-suggestion.png") });
+  const description = page.getByLabel("Description", { exact: true });
+  assert.equal(await description.inputValue(), "i prepare monthly financial reports");
+  await shot("ai-suggestion");
   await page.getByRole("button", { name: "Keep mine" }).click();
-  assert.equal(await field("Description").inputValue(), "i build websites using React");
+  assert.equal(await description.inputValue(), "i prepare monthly financial reports");
   await page.getByRole("button", { name: /Improve wording/ }).click();
   await page.getByRole("button", { name: "Accept", exact: true }).click();
-  assert.match(await field("Description").inputValue(), /Led a team of 12/);
+  assert.match(await description.inputValue(), /Led a team of 12/);
   await page.getByRole("button", { name: "Restore my text" }).first().click();
-  assert.equal(await field("Description").inputValue(), "i build websites using React");
-  step("cloud AI: consent gate, minimal payload, integrity warning, accept/reject/restore");
+  assert.equal(await description.inputValue(), "i prepare monthly financial reports");
   await saved();
+  step("cloud AI: consent gate, one field sent, integrity warning, accept / keep mine / restore");
 
-  // --- Khmer CV ---
-  await page.goto(`${origin}/new/`);
-  await page.getByTestId("lang-km").click();
-  await page.getByTestId("new-title").fill("Khmer CV");
-  await page.getByText("Go straight to the editor").click();
+  // --- Khmer CV through the questions ---
+  await page.goto(`${origin}/create/`);
+  await id("create-start-no").click();
+  await answerQuestions({ khmer: true });
+  await id("use-template").click();
   await page.waitForURL(/\/editor\//);
-  await field("Full name").fill("សុខ ដារ៉ា");
-  await field("Professional title").fill("អ្នកអភិវឌ្ឍន៍កម្មវិធី Frontend");
-  await page.getByTestId("section-summary").click();
-  await page.locator("textarea").first().fill("អ្នកអភិវឌ្ឍន៍កម្មវិធីដែលមានបទពិសោធន៍បីឆ្នាំក្នុងការបង្កើតគេហទំព័រ និងកម្មវិធីទូរស័ព្ទដោយប្រើ React និង TypeScript។ ស្រឡាញ់ការរៀនបច្ចេកវិទ្យាថ្មីៗ។");
-  await page.getByTestId("section-experiences").click();
-  await page.getByTestId("add-experiences").click();
-  await field("Job title").fill("អ្នកអភិវឌ្ឍន៍គេហទំព័រ");
-  await field("Company or organization").fill("ក្រុមហ៊ុន អេស៊ីអឹម");
-  await field("Start date").fill("2022-01");
-  await page.getByLabel("I currently work here").check();
-  await preview.getByText("មករា 2022 – បច្ចុប្បន្ន").waitFor();
-  await preview.getByText("បទពិសោធន៍ការងារ").waitFor();
+  await preview.getByText("សុខ ដារ៉ា").first().waitFor();
+  await preview.getByText(/មករា 2022 – បច្ចុប្បន្ន/).first().waitFor();
+  await preview.getByText("បទពិសោធន៍ការងារ").first().waitFor();
   await page.evaluate(() => document.fonts.ready);
-  const khmerFont = await preview.locator(".cv-name").evaluate(() => [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")));
-  assert.ok(khmerFont.some((f) => /Khmer|Kantumruy|Battambang/.test(f)), `no Khmer webfont loaded: ${khmerFont}`);
+  const loaded = await page.evaluate(() => [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")));
+  assert.ok(loaded.some((f) => /Khmer|Kantumruy|Battambang|Hanuman|Moul/.test(f)), `no Khmer webfont loaded: ${loaded}`);
   await saved();
-  await page.screenshot({ path: join(shots, "editor-km.png") });
-  step("Khmer CV renders with Khmer labels, dates and an embedded Khmer font");
+  await shot("editor-km");
+  step("a Khmer CV renders with Khmer labels, dates and a bundled Khmer font");
 
-  // --- Khmer UI ---
+  // --- Landing with saved CVs; Khmer interface ---
   await page.goto(`${origin}/`);
+  await id("landing-cv").first().waitFor();
+  assert.ok((await id("landing-cv").count()) >= 4);
   await page.getByRole("button", { name: "ខ្មែរ" }).click();
-  await page.getByRole("heading", { name: "ប្រវត្តិរូបរបស់ខ្ញុំ" }).waitFor();
-  await page.screenshot({ path: join(shots, "home-km.png") });
+  await page.getByRole("heading", { name: "ប្រវត្តិរូបរបស់អ្នក រួចរាល់ក្នុងប៉ុន្មាននាទី។" }).waitFor();
+  await shot("landing-km");
   await page.getByRole("button", { name: "EN" }).click();
-  await page.getByRole("heading", { name: "My CVs" }).waitFor();
-  step("interface switches between English and Khmer");
+  await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
+  step("saved CVs are listed; the interface switches between English and Khmer");
 
-  // --- Backup import ---
-  await page.getByTestId("import-input").setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
-  await page.getByText("Imported 1 CV(s).").waitFor();
-  assert.equal(await page.getByRole("heading", { name: "Smoke test CV" }).count(), 2);
-  await page.getByTestId("import-input").setInputFiles({ name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"hello":1}') });
-  await page.getByText("not a valid ThaFlow CV backup").waitFor();
-  step("JSON backup restores; invalid files are rejected");
+  // --- Backup restore and delete one ---
+  const before = await id("landing-cv").count();
+  await id("landing-restore-input").setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
+  await page.getByText("Restored 1 CV(s).").waitFor();
+  assert.equal(await id("landing-cv").count(), before + 1);
+  await id("landing-restore-input").setInputFiles({ name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"hello":1}') });
+  await page.getByText("not a ThaFlow CV backup").waitFor();
+  await id("landing-cv-delete").first().click();
+  await id("landing-cv-delete-confirm").click();
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid="landing-cv"]').length === n, before);
+  step("a backup restores; invalid files are rejected; a CV can be deleted");
 
   // --- Offline ---
   await page.evaluate(() => navigator.serviceWorker.ready);
-  await page.reload(); // let the worker control the page and cache what it loads
-  await page.getByRole("heading", { name: "My CVs" }).waitFor();
+  await page.reload();
+  await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
   await page.goto(cvUrl);
-  await preview.getByText("Sok Dara").waitFor();
+  await preview.getByText("Sok Dara").first().waitFor();
+  await page.goto(`${origin}/create/`);
+  await id("create-start-no").waitFor();
+  await page.goto(`${origin}/templates/?id=x`);
+  await id("gallery-not-found").waitFor();
   await context.setOffline(true);
   await page.goto(`${origin}/`);
-  await page.getByRole("heading", { name: "Khmer CV" }).waitFor();
+  await id("landing-cv").first().waitFor();
   await page.goto(cvUrl);
-  await preview.getByText("Sok Dara").waitFor();
-  await field("Location").fill("Phnom Penh");
-  await preview.getByText("Phnom Penh").first().waitFor();
+  await preview.getByText("Sok Dara").first().waitFor();
+  await page.getByLabel("Location", { exact: true }).first().fill("Siem Reap");
+  await preview.getByText("Siem Reap").first().waitFor();
+  await page.goto(`${origin}/create/`);
+  await id("create-start-no").waitFor();
   await context.setOffline(false);
-  step("app shell and editing work offline");
+  step("landing, questions and editing work offline");
 
   // --- Clear all data ---
   await page.goto(`${origin}/settings/`);
-  await page.getByTestId("clear-data").click();
-  await page.getByTestId("confirm-clear").click();
+  await id("clear-data").click();
+  await id("confirm-clear").click();
   await page.getByText("All local data was deleted.").waitFor();
   await page.goto(`${origin}/`);
-  await page.getByText("Create your first CV").waitFor();
-  step("user can delete all local data");
+  await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
+  assert.equal(await id("landing-cv").count(), 0);
+  step("all local data can be deleted");
 
-  // --- Mobile layout ---
+  // --- Phone ---
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const mobile = await phone.newPage();
-  await mobile.goto(`${origin}/new/`);
-  await mobile.getByTestId("start-guide").click();
-  await mobile.getByLabel("Full name", { exact: true }).fill("Mobile User");
-  await mobile.getByRole("tab", { name: "Preview" }).click();
-  await mobile.getByTestId("preview").getByText("Mobile User").waitFor();
-  assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "page scrolls horizontally on mobile");
-  await mobile.screenshot({ path: join(shots, "mobile-preview.png") });
-  step("mobile layout has edit/preview tabs and no horizontal overflow");
+  const noOverflow = async (where) => assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `horizontal scroll on phone: ${where}`);
+  await mobile.goto(`${origin}/`);
+  await noOverflow("landing");
+  await mobile.getByTestId("landing-create").click();
+  await mobile.getByTestId("create-start-no").click();
+  await mobile.getByTestId("create-language-en").click();
+  await mobile.getByTestId("create-name").fill("Mobile User");
+  await noOverflow("question");
+  await mobile.screenshot({ path: join(shots, "mobile-question.png") });
+  await mobile.getByTestId("create-next").click();
+  for (let i = 0; i < 2; i++) await mobile.getByTestId("create-next").click(); // title, contact
+  await mobile.getByTestId("create-worked-no").click(); // "Not yet" → projects are asked
+  await mobile.getByTestId("create-education-institution").waitFor();
+  await mobile.getByTestId("create-next").click();
+  await mobile.getByTestId("create-project-name").waitFor();
+  for (let i = 0; i < 4; i++) await mobile.getByTestId("create-next").click(); // projects, skills, languages, about
+  await mobile.getByTestId("template-grid").waitFor();
+  await noOverflow("templates");
+  await mobile.screenshot({ path: join(shots, "mobile-templates.png") });
+  await mobile.getByTestId("use-template-mobile").click();
+  await mobile.getByTestId("preview").getByText("Mobile User").first().waitFor();
+  await noOverflow("editor");
+  await mobile.screenshot({ path: join(shots, "mobile-editor.png") });
+  await mobile.getByTestId("view-edit").click();
+  await mobile.getByLabel("Full name", { exact: true }).waitFor();
+  await noOverflow("editor edit");
+  step("phone: questions (first-job-seeker path), templates and editor fit with no horizontal scroll");
 
   const unexpected = external.filter((u) => !u.startsWith(`http://127.0.0.1:${aiPort}`));
   assert.deepEqual(unexpected, [], "unexpected cross-origin requests");
@@ -285,7 +371,8 @@ try {
 } catch (error) {
   await page.screenshot({ path: join(shots, "failure.png") }).catch(() => {});
   console.error("\nSmoke test failed:", error);
-  if (errors.length) console.error("Console errors:", errors);
+  console.error("At:", page.url());
+  if (errors.length) console.error("Console errors:", errors.slice(0, 5));
   process.exitCode = 1;
 } finally {
   await browser.close();

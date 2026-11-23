@@ -1,10 +1,12 @@
 import type { settings as en } from "../en/settings";
 
 export const settings: Partial<Record<keyof typeof en, string>> = {
+  "settings.title": "ការកំណត់",
+  "settings.back": "ថយក្រោយ",
   "settings.uiLanguage": "ភាសាកម្មវិធី",
   "settings.uiLanguageHint": "ប្រវត្តិរូបនីមួយៗមានភាសារៀងខ្លួន ដែលជ្រើសរើសពេលបង្កើត។",
   "settings.ai": "ជំនួយ AI",
-  "settings.aiIntro": "AI ជាជម្រើស។ អ្នកអាចបង្កើត កែសម្រួល និងនាំចេញប្រវត្តិរូបដោយមិនប្រើវា។",
+  "settings.aiIntro": "ជាជម្រើស។ អ្វីៗទាំងអស់ដំណើរការបានដោយមិនចាំបាច់ប្រើវា។",
   "settings.aiOff": "បិទ",
   "settings.aiOffHelp": "ប្រើតែការពិនិត្យដែលមានស្រាប់។ គ្មានអ្វីចេញពីឧបករណ៍នេះទេ។",
   "settings.aiLocal": "AI លើឧបករណ៍",
@@ -24,7 +26,7 @@ export const settings: Partial<Record<keyof typeof en, string>> = {
   "settings.stateCloud": "AI លើពពករួចរាល់។",
   "settings.stateNone": "AI ត្រូវបានបិទ។ ការពិនិត្យ និងការកែសម្រួលដោយដៃដំណើរការជាធម្មតា។",
   "settings.data": "ទិន្នន័យរបស់អ្នក",
-  "settings.dataIntro": "ប្រវត្តិរូប ច្បាប់រក្សាទុក និងការកំណត់ ត្រូវបានរក្សាទុកតែក្នុងកម្មវិធីរុករកនេះ។ ទិន្នន័យមិនត្រូវបានអ៊ិនគ្រីបទេ ដូច្នេះអ្នកណាដែលប្រើកម្មវិធីរុករកនេះអាចបើកវាបាន។ ការសម្អាតទិន្នន័យកម្មវិធីរុករកនឹងលុបវា ដូច្នេះសូមបម្រុងទុក។",
+  "settings.dataIntro": "អ្វីៗទាំងអស់រក្សាទុកតែក្នុងកម្មវិធីរុករកនេះ ដោយមិនបានអ៊ិនគ្រីប។ ការសម្អាតទិន្នន័យកម្មវិធីរុករកនឹងលុបវា ដូច្នេះសូមរក្សាឯកសារបម្រុងទុក។",
   "settings.persistent": "កម្មវិធីរុករកបានយល់ព្រមរក្សាទិន្នន័យនេះ",
   "settings.notPersistent": "កម្មវិធីរុករកអាចលុបទិន្នន័យនេះ ប្រសិនបើឧបករណ៍ខ្វះទំហំផ្ទុក",
   "settings.usage": "បានប្រើ {size} MB",
