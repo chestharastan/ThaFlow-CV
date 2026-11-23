@@ -139,7 +139,7 @@ export function Select({
   className,
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & { controlSize?: ControlSize }) {
-  return <select {...props} className={cx(controlBase, controlSizes[controlSize], controlHeights[controlSize], "py-0!", className)} />;
+  return <select {...props} className={cx(controlBase, controlSizes[controlSize], controlHeights[controlSize], "select-chevron cursor-pointer py-0!", className)} />;
 }
 
 /** Chip input for short lists (skills, technologies). Enter or comma adds; Backspace on empty removes the last. */

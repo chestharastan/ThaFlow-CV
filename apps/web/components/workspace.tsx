@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AIOutputError, AIUnavailableError } from "@thaflow/ai-engine";
-import { SECTION_KEYS, setTextAtPath, type CVDocument, type ContentSuggestion, type SectionKey } from "@thaflow/cv-core";
+import { SECTION_KEYS, createId, setTextAtPath, type CVDocument, type ContentSuggestion, type SectionKey } from "@thaflow/cv-core";
 import { downloadBackup, downloadBlob, fileNameFor, generateDOCX, printToPDF } from "@thaflow/export-engine";
 import type { MessageKey } from "@thaflow/localization";
 import { createRuleEngine } from "@thaflow/rule-engine";
@@ -15,6 +15,7 @@ import { useAI } from "@/lib/ai";
 import { getStore, useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
 import { SectionForm } from "./forms";
+import { TemplateGrid } from "./gallery/template-grid";
 import { CheckPanel, DesignPanel, HistoryPanel, QuickAdd } from "./panels";
 import { ScaledPreview } from "./preview";
 import { AppHeader } from "./app-header";
@@ -22,7 +23,7 @@ import { Button, cx } from "./ui";
 import { WorkspaceContext, type AssistRequest, type WorkspaceContextValue } from "./workspace-context";
 
 const ruleEngine = createRuleEngine();
-type Tab = "content" | "design" | "check" | "history";
+type Tab = "content" | "template" | "design" | "check" | "history";
 type StepId = "personal" | SectionKey;
 const ALL_SECTIONS: StepId[] = ["personal", ...SECTION_KEYS];
 
@@ -155,7 +156,7 @@ export function Workspace() {
         const common = { cvId: current.id, targetSection: request.section, targetField: request.field, text: request.text, language: current.metadata.language, locale: settings.uiLanguage };
         const suggestion =
           kind === "rewrite"
-            ? await orchestrator.suggestRewrite({ ...common, kind: request.kind, position: request.position })
+            ? await orchestrator.suggestRewrite({ ...common, kind: request.kind, position: request.position, ...(request.longer ? { length: "longer" as const } : {}) })
             : await orchestrator.suggestTranslation({ ...common, targetLanguage: current.metadata.language === "km" ? "en" : "km" });
         await getStore().putSuggestion(suggestion);
         setSuggestions((list) => [suggestion, ...list]);
@@ -178,6 +179,24 @@ export function Workspace() {
       suggestions,
       requestRewrite: (r) => void runAssist(r, "rewrite"),
       requestTranslation: (r) => void runAssist(r, "translate"),
+      suggestDraft({ field, section, original, suggested }) {
+        const current = useEditor.getState().cv;
+        if (!current) return;
+        const suggestion: ContentSuggestion = {
+          id: createId(),
+          cvId: current.id,
+          targetSection: section,
+          targetField: field,
+          originalText: original,
+          suggestedText: suggested,
+          provider: "local",
+          status: "pending",
+          warnings: [],
+          createdAt: new Date().toISOString(),
+        };
+        setSuggestions((list) => [suggestion, ...list.filter((s) => !(s.status === "pending" && s.targetField === field))]);
+        void getStore().putSuggestion(suggestion);
+      },
       resolveSuggestion(suggestionId, action, editedText) {
         const suggestion = suggestions.find((s) => s.id === suggestionId);
         const current = useEditor.getState().cv;
@@ -242,9 +261,9 @@ export function Workspace() {
           <Button variant="ghost" className="hidden px-2! sm:inline-flex" disabled={future.length === 0} onClick={redo} aria-label={t("action.redo")} title={t("action.redo")} data-testid="redo">
             <Redo />
           </Button>
-          <Link href={`/templates/?id=${cv.id}`} className={cx(templateLink, "hidden sm:inline-flex")} data-testid="change-template">
+          <button type="button" className={cx(templateLink, "hidden sm:inline-flex")} onClick={() => { setTab("template"); setMobileView("edit"); }} data-testid="open-templates">
             {t("design.template")}
-          </Link>
+          </button>
           <ExportMenu cv={cv} />
         </header>
 
@@ -259,9 +278,9 @@ export function Workspace() {
               { value: "edit" as const, label: t("editor.edit"), testId: "view-edit" },
             ]}
           />
-          <Link href={`/templates/?id=${cv.id}`} className={cx(templateLink, "sm:hidden")}>
+          <button type="button" className={cx(templateLink, "sm:hidden")} onClick={() => { setTab("template"); setMobileView("edit"); }}>
             {t("design.template")}
-          </Link>
+          </button>
         </div>
 
         <div className="flex min-h-0 flex-1">
@@ -273,6 +292,7 @@ export function Workspace() {
                 onChange={(v) => setTab(v)}
                 options={[
                   { value: "content" as const, label: t("tab.content"), testId: "tab-content" },
+                  { value: "template" as const, label: t("tab.template"), testId: "tab-template" },
                   { value: "design" as const, label: t("tab.design"), testId: "tab-design" },
                   { value: "check" as const, label: t("tab.check"), badge: issueCount, testId: "tab-check" },
                   { value: "history" as const, label: t("tab.history"), testId: "tab-history" },
@@ -320,6 +340,14 @@ export function Workspace() {
                       </ul>
                     </div>
                   )}
+                </>
+              )}
+              {tab === "template" && (
+                <>
+                  <TemplateGrid cv={cv} selectedId={cv.appearance.templateId} onSelect={(templateId) => update((d) => void (d.appearance.templateId = templateId))} columns="grid-cols-2 sm:grid-cols-3" />
+                  <Link href={`/templates/?id=${cv.id}`} className="mt-5 inline-block text-sm text-muted underline underline-offset-4 hover:text-ink" data-testid="change-template">
+                    {t("editor.fullGallery")}
+                  </Link>
                 </>
               )}
               {tab === "design" && <DesignPanel cv={cv} />}

@@ -82,12 +82,14 @@ export class AIOrchestrator {
     kind: RewriteKind;
     language: CVLanguage;
     position?: string;
+    /** "longer" asks for a fuller version built only from what the text already says. */
+    length?: "same" | "longer";
     locale?: CVLanguage;
   }): Promise<ContentSuggestion> {
     const { result, provider } = await this.run({
       task: "rewrite_text",
       language: input.language,
-      content: { text: input.text, kind: input.kind, ...(input.position ? { position: input.position } : {}) },
+      content: { text: input.text, kind: input.kind, ...(input.position ? { position: input.position } : {}), ...(input.length === "longer" ? { length: "longer" as const } : {}) },
     });
     return this.toSuggestion(input, result.text, provider, true);
   }

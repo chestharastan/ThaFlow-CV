@@ -10,6 +10,7 @@ export { collectTextFields } from "./quality/content.rules";
 export * from "./quality/integrity";
 export * from "./normalize";
 export * from "./classification/classify";
+export { draftSummary } from "./writing/draft-summary";
 
 export const defaultRules = [...basicRules, ...sectionRules, ...contentRules];
 

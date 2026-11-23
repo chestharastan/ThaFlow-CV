@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { formatPartialDate, type CVLanguage } from "@thaflow/cv-core";
-import { MONTH_VALUES, joinPartialDate, splitPartialDate, toAsciiDigits } from "@thaflow/questionnaire";
-import { Select, TextInput, cx } from "@/components/ui";
+import { MONTH_VALUES, joinPartialDate, splitPartialDate } from "@thaflow/questionnaire";
+import { cx } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
 
 /** A native select is a little shorter than a text box of the same size; this lines them up. */
@@ -55,42 +55,55 @@ export function DateInput({
     onChange(joined.value, joined.valid);
   };
 
+  // Recent years first; a year outside the usual range (from an imported CV) is still offered.
+  const years = useMemo(() => {
+    const latest = new Date().getFullYear() + 6;
+    const list = Array.from({ length: latest - 1959 }, (_, i) => String(latest - i));
+    return parts.year && !list.includes(parts.year) ? [parts.year, ...list] : list;
+  }, [parts.year]);
+  const bad = invalid || (showInvalid && !valid);
+  const part = "select-chevron h-full min-w-0 cursor-pointer bg-transparent pl-4 text-base text-ink outline-none focus-visible:outline-none";
+
   return (
     <fieldset className={cx("min-w-0", className)}>
       <legend className="mb-1.5 block text-xs font-medium text-muted">{label}</legend>
-      <div className="flex gap-2">
-        <div className="min-w-0 flex-1">
-          <Select
-            controlSize="lg"
-            value={parts.month}
-            onChange={(e) => change({ month: e.target.value })}
-            aria-label={`${label}: ${t("create.month")}`}
-            className={cx(BOX_HEIGHT, !parts.month && PLACEHOLDER)}
-            data-testid={`${testId}-month`}
-          >
-            <option value="">{t("create.month")}</option>
-            {MONTH_VALUES.map((month, index) => (
-              <option key={month} value={month} className="text-ink">
-                {months[index]}
-              </option>
-            ))}
-          </Select>
-        </div>
-        {/* Widths live on wrappers: the boxes themselves are always full width. */}
-        <div className="w-24 shrink-0">
-          <TextInput
-            controlSize="lg"
-            value={parts.year}
-            onChange={(e) => change({ year: toAsciiDigits(e.target.value).replace(/[^\d]/g, "").slice(0, 4) })}
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={4}
-            placeholder={t("create.year")}
-            aria-label={`${label}: ${t("create.year")}`}
-            invalid={invalid || (showInvalid && !valid)}
-            data-testid={`${testId}-year`}
-          />
-        </div>
+      {/* One box, two parts: reads as a single date instead of two unrelated fields. */}
+      <div
+        className={cx(
+          "flex h-12 items-stretch rounded-xl border bg-paper transition-[border-color,box-shadow] focus-within:ring-2",
+          bad ? "border-danger focus-within:ring-danger/15" : "border-line-strong hover:border-faint focus-within:border-ink focus-within:ring-ink/10",
+        )}
+      >
+        <select
+          value={parts.month}
+          onChange={(e) => change({ month: e.target.value })}
+          aria-label={`${label}: ${t("date.month")}`}
+          className={cx(part, "flex-[3] rounded-l-xl", !parts.month && PLACEHOLDER)}
+          data-testid={`${testId}-month`}
+        >
+          <option value="">{t("date.month")}</option>
+          {MONTH_VALUES.map((month, index) => (
+            <option key={month} value={month} className="text-ink">
+              {months[index]}
+            </option>
+          ))}
+        </select>
+        <span className="my-2.5 w-px shrink-0 bg-line" aria-hidden />
+        <select
+          value={parts.year}
+          onChange={(e) => change({ year: e.target.value })}
+          aria-label={`${label}: ${t("date.year")}`}
+          aria-invalid={bad || undefined}
+          className={cx(part, "flex-[2] rounded-r-xl", !parts.year && PLACEHOLDER)}
+          data-testid={`${testId}-year`}
+        >
+          <option value="">{t("date.year")}</option>
+          {years.map((year) => (
+            <option key={year} value={year} className="text-ink">
+              {year}
+            </option>
+          ))}
+        </select>
       </div>
     </fieldset>
   );

@@ -20,6 +20,7 @@ import {
 import { Button, Field, TextArea, TextInput } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
+import { DegreeSelect } from "@/components/degree-select";
 import { DateInput } from "./date-input";
 import { Choice, Choices, ErrorLine, Heading, Primary, QuestionForm } from "./frame";
 import { createUrl, type FlowNav } from "./nav";
@@ -332,18 +333,7 @@ function EntryForm({ cv, id, section, entryId, nav, onNext }: SectionProps & { e
         </Field>
         <div className={PAIR}>
           <Field label={t("field.degree")}>
-            {(box) => (
-              <TextInput
-                id={box}
-                type="text"
-                controlSize="lg"
-                autoComplete="off"
-                value={school.degree ?? ""}
-                placeholder={t("create.education.degreePlaceholder")}
-                onChange={(e) => set({ degree: e.target.value }, "degree")}
-                data-testid="create-education-degree"
-              />
-            )}
+            {(box) => <DegreeSelect id={box} controlSize="lg" language={cv.metadata.language} value={school.degree} onChange={(degree) => set({ degree }, "degree")} testId="create-education-degree" />}
           </Field>
           <Field label={t("field.fieldOfStudy")}>
             {(box) => (

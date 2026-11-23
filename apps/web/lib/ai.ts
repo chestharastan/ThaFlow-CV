@@ -11,9 +11,17 @@ import { useApp } from "./app-context";
  */
 export const localProvider = new LocalProvider(null);
 
+/**
+ * An AI server the operator of this site runs, set at build time with
+ * NEXT_PUBLIC_THAFLOW_AI_URL. When present, people only have to switch cloud AI
+ * on and agree; without it they would have to know a server address.
+ */
+export const DEFAULT_AI_ENDPOINT = process.env.NEXT_PUBLIC_THAFLOW_AI_URL ?? "";
+
 export function useAI(): { orchestrator: AIOrchestrator; state: AIRuntimeState } {
   const { settings } = useApp();
-  const { mode, cloudEndpoint, cloudConsent } = settings.ai;
+  const { mode, cloudConsent } = settings.ai;
+  const cloudEndpoint = settings.ai.cloudEndpoint || DEFAULT_AI_ENDPOINT;
   const orchestrator = useMemo(
     () =>
       new AIOrchestrator({

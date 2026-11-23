@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ExtractionResult } from "@thaflow/ai-engine";
 import { createEducation, createExperience, createId, createProject, createSkillGroup, type CVDocument, type CVRevision, type SectionKey } from "@thaflow/cv-core";
@@ -18,20 +17,9 @@ import { Button, Card, Field, Select, TextArea, cx } from "./ui";
 export function DesignPanel({ cv }: { cv: CVDocument }) {
   const { t } = useApp();
   const update = useEditor((s) => s.update);
-  const template = getTemplate(cv.appearance.templateId);
-  const look = resolveAppearance(template, cv.appearance);
+  const look = resolveAppearance(getTemplate(cv.appearance.templateId), cv.appearance);
   return (
     <div className="space-y-6">
-      <section className="flex items-center justify-between gap-3 rounded-xl border border-line bg-paper px-4 py-3 shadow-soft">
-        <div className="min-w-0">
-          <div className="text-xs text-muted">{t("design.template")}</div>
-          <div className="truncate text-sm font-medium text-ink" data-testid="current-template">{template.name}</div>
-        </div>
-        <Link href={`/templates/?id=${cv.id}`} className="text-sm font-medium text-ink underline underline-offset-4">
-          {t("design.change")}
-        </Link>
-      </section>
-
       <section>
         <h3 className="mb-2 text-sm font-semibold text-ink">{t("design.color")}</h3>
         <div className="flex flex-wrap items-center gap-2">

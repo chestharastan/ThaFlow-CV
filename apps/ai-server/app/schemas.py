@@ -22,6 +22,7 @@ class RewriteContent(Strict):
     text: Text
     kind: Literal["summary", "experience", "project", "education", "general"] = "general"
     position: Optional[Annotated[str, Field(max_length=200)]] = None
+    length: Literal["same", "longer"] = "same"
 
 
 class TranslateContent(Strict):

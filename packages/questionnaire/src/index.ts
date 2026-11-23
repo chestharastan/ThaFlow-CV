@@ -8,3 +8,4 @@ export * from "./answers";
 export * from "./entries";
 export * from "./validation";
 export * from "./dates";
+export * from "./degrees";

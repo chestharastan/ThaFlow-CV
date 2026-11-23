@@ -11,6 +11,8 @@ export interface AssistRequest {
   text: string;
   kind: RewriteKind;
   position?: string;
+  /** Ask for a fuller version instead of the same length. */
+  longer?: boolean;
 }
 
 export interface WorkspaceContextValue {
@@ -22,6 +24,8 @@ export interface WorkspaceContextValue {
   suggestions: ContentSuggestion[];
   requestRewrite(request: AssistRequest): void;
   requestTranslation(request: AssistRequest): void;
+  /** Offer text written on this device (no AI) as a suggestion beside the person's own. */
+  suggestDraft(draft: { field: string; section: SectionKey | "personal"; original: string; suggested: string }): void;
   resolveSuggestion(id: string, action: "accept" | "reject", editedText?: string): void;
 }
 

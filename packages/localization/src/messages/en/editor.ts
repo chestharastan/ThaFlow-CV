@@ -50,7 +50,7 @@ export const editor = {
   "ai.cloudNotice": "Sends this text to your cloud AI server.",
   "ai.suggestion": "AI suggestion",
   "ai.providerCloud": "Cloud AI",
-  "ai.providerLocal": "On-device AI",
+  "ai.providerLocal": "On this device",
   "ai.original": "Your text",
   "ai.suggested": "Suggested",
   "ai.accept": "Accept",
@@ -65,4 +65,7 @@ export const editor = {
   "design.change": "Change",
   "editor.view": "View",
   "editor.tools": "Tools",
+  "tab.template": "Template",
+  "ai.longer": "Write more",
+  "editor.fullGallery": "Open full view",
 } as const;

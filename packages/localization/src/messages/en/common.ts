@@ -90,4 +90,11 @@ export const common = {
   "list.empty": "Nothing here yet.",
   "skills.empty": "No skills yet. Add a group to start.",
   "custom.help": "Create your own sections for anything that does not fit elsewhere.",
+  "degree.choose": "Choose…",
+  "degree.other": "Other…",
+  "degree.otherPlaceholder": "Type your qualification",
+  "date.month": "Month",
+  "date.year": "Year",
+  "write.forMe": "Write it for me",
+  "write.suggestion": "Suggestion",
 } as const;

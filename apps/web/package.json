@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "serve": "npx --yes serve out -l 3000",
-    "typecheck": "tsc --noEmit",
-    "postbuild": "node scripts/write-precache.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.0.0",

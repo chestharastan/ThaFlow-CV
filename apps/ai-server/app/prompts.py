@@ -16,7 +16,13 @@ def build_prompt(request: RewriteRequest | TranslateRequest | ExtractRequest) ->
     if isinstance(request, RewriteRequest):
         system = (
             f"You rewrite one field of a CV so it is clear, concise and professional. Write in {LANGUAGE_NAME[request.language]}. "
-            f"Keep the meaning and roughly the same length. {INTEGRITY} Return only the rewritten text."
+            + (
+                "Write a fuller version: say the same things in more complete, specific sentences (or lines starting with '- ' for duties), "
+                "about two to three times as long, without adding any fact that is not in the input. "
+                if request.content.length == "longer"
+                else "Keep the meaning and roughly the same length. "
+            )
+            + f"{INTEGRITY} Return only the rewritten text."
         )
         position = f"\nPosition: {request.content.position}" if request.content.position else ""
         return system, f"CV section: {request.content.kind}{position}\n<input>\n{text}\n</input>"

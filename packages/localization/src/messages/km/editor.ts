@@ -52,7 +52,7 @@ export const editor: Partial<Record<keyof typeof en, string>> = {
   "ai.cloudNotice": "បញ្ជូនអត្ថបទនេះទៅម៉ាស៊ីនមេ AI របស់អ្នក។",
   "ai.suggestion": "សំណើពី AI",
   "ai.providerCloud": "AI លើពពក",
-  "ai.providerLocal": "AI លើឧបករណ៍",
+  "ai.providerLocal": "លើឧបករណ៍នេះ",
   "ai.original": "អត្ថបទរបស់អ្នក",
   "ai.suggested": "សំណើ",
   "ai.accept": "យល់ព្រម",
@@ -67,4 +67,7 @@ export const editor: Partial<Record<keyof typeof en, string>> = {
   "design.change": "ផ្លាស់ប្តូរ",
   "editor.view": "ទិដ្ឋភាព",
   "editor.tools": "ឧបករណ៍",
+  "tab.template": "គំរូ",
+  "ai.longer": "សរសេរបន្ថែម",
+  "editor.fullGallery": "បើកទិដ្ឋភាពពេញ",
 };

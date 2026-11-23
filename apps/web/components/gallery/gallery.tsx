@@ -2,69 +2,22 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { memo, useEffect, useRef, useState } from "react";
-import type { CVDocument } from "@thaflow/cv-core";
+import { useEffect, useState } from "react";
 import type { MessageKey } from "@thaflow/localization";
-import { TEMPLATE_CATEGORIES, getTemplate, templates, type CVTemplate, type TemplateCategory } from "@thaflow/template-engine";
+import { getTemplate } from "@thaflow/template-engine";
 import { AppHeader, LanguageToggle } from "@/components/app-header";
-import { ArrowRight, Check, Close } from "@/components/icons";
+import { ArrowRight, Close } from "@/components/icons";
 import { ScaledPreview } from "@/components/preview";
 import { Button, cx } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
-
-type Filter = "all" | TemplateCategory;
-
-/**
- * One template rendered with the person's own CV. Rendering thirty full A4
- * documents at once is heavy, so a card only renders once it nears the viewport.
- */
-const TemplateCard = memo(function TemplateCard(props: { cv: CVDocument; template: CVTemplate; selected: boolean; onSelect(id: string): void }) {
-  const { cv, template, selected, onSelect } = props;
-  const holder = useRef<HTMLButtonElement>(null);
-  const [near, setNear] = useState(false);
-  useEffect(() => {
-    const el = holder.current;
-    if (!el || near) return;
-    const observer = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setNear(true), { rootMargin: "600px 0px" });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [near]);
-  return (
-    <button
-      ref={holder}
-      type="button"
-      aria-pressed={selected}
-      onClick={() => onSelect(template.id)}
-      data-testid={`template-${template.id}`}
-      className="group block w-full rounded-xl text-left"
-    >
-      <div
-        className={cx(
-          "relative aspect-[210/297] overflow-hidden rounded-xl border bg-paper transition-[border-color,box-shadow]",
-          selected ? "border-ink shadow-page ring-1 ring-ink" : "border-line shadow-soft group-hover:border-line-strong group-hover:shadow-page",
-        )}
-      >
-        <div className="pointer-events-none" aria-hidden>
-          {near && <ScaledPreview cv={cv} template={template} bare />}
-        </div>
-        {selected && (
-          <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-ink text-on-brand">
-            <Check width={14} height={14} strokeWidth={2.4} />
-          </span>
-        )}
-      </div>
-      <div className={cx("mt-2 px-0.5 text-sm", selected ? "font-semibold text-ink" : "text-ink-soft")}>{template.name}</div>
-    </button>
-  );
-});
+import { TemplateGrid } from "./template-grid";
 
 export function Gallery() {
   const { t } = useApp();
   const router = useRouter();
   const id = useSearchParams().get("id") ?? "";
   const { cv, status, load, update } = useEditor();
-  const [filter, setFilter] = useState<Filter>("all");
   const [zoomed, setZoomed] = useState(false);
 
   useEffect(() => {
@@ -94,13 +47,11 @@ export function Gallery() {
   if (!cv) return <div className="min-h-dvh" aria-busy="true" />;
 
   const selected = getTemplate(cv.appearance.templateId);
-  const shown = templates.filter((tpl) => filter === "all" || tpl.category === filter);
   const select = (templateId: string) => update((d) => void (d.appearance.templateId = templateId));
   const confirm = async () => {
     await useEditor.getState().flush();
     router.push(`/editor/?id=${cv.id}`);
   };
-  const filters: Filter[] = ["all", ...TEMPLATE_CATEGORIES];
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -112,25 +63,8 @@ export function Gallery() {
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)] lg:gap-12">
           <div className="animate-enter">
             <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] sm:text-[32px]">{t("gallery.title")}</h1>
-            <div role="tablist" aria-label={t("gallery.filter")} className="-mx-1 mt-5 flex flex-wrap gap-1">
-              {filters.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === key}
-                  onClick={() => setFilter(key)}
-                  data-testid={`filter-${key}`}
-                  className={cx("h-9 rounded-lg px-3 text-sm transition-colors", filter === key ? "bg-cream font-medium text-ink" : "text-muted hover:bg-surface hover:text-ink")}
-                >
-                  {t(`gallery.${key}` as MessageKey)}
-                </button>
-              ))}
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4" data-testid="template-grid">
-              {shown.map((tpl) => (
-                <TemplateCard key={tpl.id} cv={cv} template={tpl} selected={tpl.id === selected.id} onSelect={select} />
-              ))}
+            <div className="mt-5">
+              <TemplateGrid cv={cv} selectedId={selected.id} onSelect={select} columns="grid-cols-2 sm:grid-cols-3 xl:grid-cols-4" />
             </div>
           </div>
 

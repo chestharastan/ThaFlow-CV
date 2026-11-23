@@ -12,7 +12,7 @@ export type AITaskRequest =
   | {
       task: "rewrite_text";
       language: CVLanguage;
-      content: { text: string; kind: RewriteKind; position?: string };
+      content: { text: string; kind: RewriteKind; position?: string; length?: "same" | "longer" };
     }
   | {
       task: "translate_text";

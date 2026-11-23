@@ -92,4 +92,11 @@ export const common: Partial<Record<keyof typeof en, string>> = {
   "list.empty": "មិនទាន់មានអ្វីនៅទីនេះទេ។",
   "skills.empty": "មិនទាន់មានជំនាញទេ។ សូមបន្ថែមក្រុមដើម្បីចាប់ផ្តើម។",
   "custom.help": "បង្កើតផ្នែកផ្ទាល់ខ្លួនសម្រាប់ព័ត៌មានដែលមិនសមនឹងផ្នែកផ្សេង។",
+  "degree.choose": "ជ្រើសរើស…",
+  "degree.other": "ផ្សេងទៀត…",
+  "degree.otherPlaceholder": "វាយបញ្ចូលសញ្ញាបត្ររបស់អ្នក",
+  "date.month": "ខែ",
+  "date.year": "ឆ្នាំ",
+  "write.forMe": "សរសេរជូនខ្ញុំ",
+  "write.suggestion": "សំណើ",
 };

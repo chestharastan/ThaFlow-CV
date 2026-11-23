@@ -19,11 +19,13 @@ import {
 import type { MessageKey } from "@thaflow/localization";
 import { useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
+import { draftSummary } from "@thaflow/rule-engine";
 import { AIAssist } from "./ai-assist";
+import { DegreeSelect } from "./degree-select";
 import { Button, Card, Field, Select, TagInput, TextArea, TextInput } from "./ui";
 import { useWorkspace } from "./workspace-context";
 
-type FieldType = "text" | "email" | "tel" | "url" | "date" | "textarea" | "lines" | "tags" | "checkbox" | "select";
+type FieldType = "text" | "email" | "tel" | "url" | "date" | "textarea" | "lines" | "tags" | "checkbox" | "select" | "degree";
 
 interface FieldDef {
   key: string;
@@ -103,6 +105,9 @@ function Fields(props: {
               }
               if (type === "tags") {
                 return <TagInput id={id} values={(raw as string[]) ?? []} onChange={(v) => props.onChange(f.key, v)} removeLabel={t("action.remove")} />;
+              }
+              if (type === "degree") {
+                return <DegreeSelect id={id} language={props.cvLanguage} value={raw as string | undefined} onChange={(v) => props.onChange(f.key, v || undefined)} />;
               }
               if (type === "select") {
                 return (
@@ -190,7 +195,7 @@ const listConfig: Record<ListKey, { fields: FieldDef[]; create(): Item; title(it
     title: (i) => [i.degree || i.fieldOfStudy, i.institution].filter(Boolean).join(" — "),
     fields: [
       { key: "institution", label: "field.institution", wide: true },
-      { key: "degree", label: "field.degree", hint: "hint.degree" },
+      { key: "degree", label: "field.degree", type: "degree" },
       { key: "fieldOfStudy", label: "field.fieldOfStudy" },
       ...dateRange,
       { key: "location", label: "field.location" },
@@ -419,11 +424,26 @@ function PersonalForm({ cv }: { cv: CVDocument }) {
 function SummaryForm({ cv }: { cv: CVDocument }) {
   const { t } = useApp();
   const update = useEditor((s) => s.update);
+  const { suggestions, suggestDraft } = useWorkspace();
+  const draft = draftSummary(cv);
+  const pending = suggestions.some((s) => s.status === "pending" && s.targetField === "summary");
   return (
-    <Field label={t("section.summary")} hint={t("hint.summary")}>
+    <Field label={t("section.summary")}>
       {(id) => (
         <>
-          <TextArea id={id} rows={6} value={cv.summary} onChange={(e) => update((d) => void (d.summary = e.target.value), "summary")} />
+          <TextArea id={id} rows={6} value={cv.summary} onChange={(e) => update((d) => void (d.summary = e.target.value), "summary")} data-testid="summary-box" />
+          {draft && draft !== cv.summary.trim() && !pending && (
+            <div className="mt-1.5">
+              {/* Written from the person's own answers on this device: no AI, nothing sent anywhere. */}
+              <Button
+                small
+                data-testid="write-summary"
+                onClick={() => (cv.summary.trim() ? suggestDraft({ field: "summary", section: "summary", original: cv.summary, suggested: draft }) : update((d) => void (d.summary = draft)))}
+              >
+                {t("write.forMe")}
+              </Button>
+            </div>
+          )}
           <AIAssist field="summary" section="summary" text={cv.summary} kind="summary" cvLanguage={cv.metadata.language} />
         </>
       )}

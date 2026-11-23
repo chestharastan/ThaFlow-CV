@@ -6,7 +6,7 @@ import { SUPPORTED_LANGUAGES } from "@thaflow/localization";
 import { AppHeader } from "@/components/app-header";
 import { ArrowLeft } from "@/components/icons";
 import { Button, Card, Field, Select, TextInput, cx } from "@/components/ui";
-import { localProvider, useAI } from "@/lib/ai";
+import { DEFAULT_AI_ENDPOINT, localProvider, useAI } from "@/lib/ai";
 import { getStore, useApp } from "@/lib/app-context";
 
 function Group({ title, intro, children }: { title: string; intro?: string; children: ReactNode }) {
@@ -119,7 +119,7 @@ export default function SettingsPage() {
                       id={id}
                       type="url"
                       value={endpoint}
-                      placeholder="https://ai.example.com"
+                      placeholder={DEFAULT_AI_ENDPOINT || "https://ai.example.com"}
                       invalid={!endpointValid}
                       onChange={(e) => setEndpoint(e.target.value)}
                       onBlur={() => endpointValid && void updateSettings({ ai: { cloudEndpoint: endpoint.trim() } })}

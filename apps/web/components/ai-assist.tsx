@@ -15,7 +15,7 @@ export function SuggestionCard({ suggestion }: { suggestion: ContentSuggestion }
   return (
     <div className="mt-2 rounded-lg border border-line bg-cream p-3 text-sm" data-testid="suggestion">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold text-ink">{t("ai.suggestion")}</span>
+        <span className="text-xs font-semibold text-ink">{t("write.suggestion")}</span>
         <span className="rounded bg-paper px-1.5 py-0.5 text-[11px] text-muted">
           {suggestion.provider === "cloud" ? t("ai.providerCloud") : t("ai.providerLocal")}
         </span>
@@ -67,6 +67,9 @@ export function AIAssist(props: AssistRequest & { cvLanguage: "en" | "km" }) {
       <div className="flex flex-wrap items-center gap-2">
         <Button small disabled={disabled} onClick={() => ws.requestRewrite(request)}>
           {busy ? t("ai.working") : t("ai.improve")}
+        </Button>
+        <Button small disabled={disabled} onClick={() => ws.requestRewrite({ ...request, longer: true })} data-testid="ai-longer">
+          {t("ai.longer")}
         </Button>
         <Button small variant="ghost" disabled={disabled} onClick={() => ws.requestTranslation(request)}>
           {props.cvLanguage === "km" ? t("ai.translateToEn") : t("ai.translateToKm")}

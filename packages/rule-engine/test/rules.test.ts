@@ -6,6 +6,7 @@ import {
   classifyText,
   createRuleEngine,
   dedupeSkills,
+  draftSummary,
   defaultRules,
   detectLanguage,
   extractYears,
@@ -109,5 +110,26 @@ describe("suggestion integrity", () => {
 
   it("treats Khmer digits as the same number", () => {
     expect(checkSuggestionIntegrity("មានបទពិសោធន៍ ៣ ឆ្នាំ", "3 years of experience")).toEqual([]);
+  });
+});
+
+describe("drafting a summary from the CV's own facts", () => {
+  const now = new Date(2026, 0, 15);
+
+  it("writes English from title, experience, education, skills and languages", () => {
+    const cv = sampleCV();
+    cv.personal.headline = "Frontend Developer";
+    cv.languages = [{ id: "l1", name: "Khmer" }, { id: "l2", name: "English" }];
+    expect(draftSummary(cv, now)).toBe(
+      "Frontend Developer with 2 years of experience at Acme Co. Holds a BSc in Computer Science from Royal University of Phnom Penh. Skilled in React and CSS. Speaks Khmer and English.",
+    );
+  });
+
+  it("writes Khmer, and says nothing it was not told", () => {
+    const cv = createEmptyCV({ language: "km" });
+    cv.personal.headline = "គណនេយ្យករ";
+    cv.education = [{ id: "e", institution: "សាកលវិទ្យាល័យភូមិន្ទភ្នំពេញ", degree: "បរិញ្ញាបត្រ", fieldOfStudy: "គណនេយ្យ", achievements: [] }];
+    expect(draftSummary(cv, now)).toBe("គណនេយ្យករ។ បានបញ្ចប់បរិញ្ញាបត្រ ផ្នែកគណនេយ្យ ពីសាកលវិទ្យាល័យភូមិន្ទភ្នំពេញ។");
+    expect(draftSummary(createEmptyCV(), now)).toBe("");
   });
 });

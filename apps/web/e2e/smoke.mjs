@@ -76,20 +76,20 @@ async function answerQuestions({ khmer = false } = {}) {
   await id("create-work-position").fill(khmer ? "គណនេយ្យករ" : "Accountant");
   await id("create-work-company").fill(khmer ? "ក្រុមហ៊ុន អេស៊ីអឹម" : "Acme Trading");
   await id("create-work-start-month").selectOption("01");
-  await id("create-work-start-year").fill("2022");
+  await id("create-work-start-year").selectOption("2022");
   if (khmer) await id("create-work-current").check();
   else {
     await id("create-work-end-month").selectOption("06");
-    await id("create-work-end-year").fill("2024");
+    await id("create-work-end-year").selectOption("2024");
   }
   await id("create-work-description").fill(khmer ? "រៀបចំរបាយការណ៍ហិរញ្ញវត្ថុប្រចាំខែ។" : "i prepare monthly financial reports");
   await next();
   await id("create-entry-list").waitFor();
   await next();
   await id("create-education-institution").fill(khmer ? "សាកលវិទ្យាល័យភូមិន្ទភ្នំពេញ" : "Royal University of Phnom Penh");
-  await id("create-education-degree").fill(khmer ? "បរិញ្ញាបត្រ" : "Bachelor's degree");
+  await id("create-education-degree").selectOption({ label: khmer ? "បរិញ្ញាបត្រ" : "Bachelor's degree" }); // a dropdown of common degrees
   await id("create-education-field").fill(khmer ? "គណនេយ្យ" : "Accounting");
-  await id("create-education-end-year").fill("2021");
+  await id("create-education-end-year").selectOption("2021");
   await next();
   await id("create-entry-list").waitFor();
   await next();
@@ -97,7 +97,12 @@ async function answerQuestions({ khmer = false } = {}) {
   await next();
   await id("create-language-name").first().fill(khmer ? "ខ្មែរ" : "Khmer");
   await next();
-  await id("create-about").fill(khmer ? "គណនេយ្យករដែលមានបទពិសោធន៍បីឆ្នាំ។" : "Accountant with three years of experience in monthly reporting.");
+  if (khmer) await id("create-about").fill("គណនេយ្យករដែលមានបទពិសោធន៍បីឆ្នាំ។");
+  else {
+    // "Write it for me": a first draft assembled on the device from the answers already given.
+    await id("create-about-write").click();
+    assert.equal(await id("create-about").inputValue(), "Accountant with 2 years of experience at Acme Trading. Holds a Bachelor's degree in Accounting from Royal University of Phnom Penh. Skilled in Excel, QuickBooks and Tax filing. Speaks Khmer.");
+  }
   await next();
   await page.waitForURL(/\/templates\//);
   await id("template-grid").waitFor();
@@ -127,7 +132,7 @@ try {
   await page.goBack();
   await id("create-about").waitFor();
   await page.reload();
-  assert.match(await id("create-about").inputValue(), /three years of experience/);
+  assert.match(await id("create-about").inputValue(), /2 years of experience at Acme Trading/);
   await next();
   await id("template-grid").waitFor();
   step("answers survive Back and a reload");
@@ -157,18 +162,29 @@ try {
   await preview.getByText("Sok Dara Edited").first().waitFor();
   await id("undo").click();
   await preview.getByText("Sok Dara", { exact: true }).first().waitFor();
+  // Change template without leaving the editor, then through the full chooser.
+  await id("open-templates").click();
+  await id("template-modern").click();
+  await preview.locator('[data-template="modern"]').waitFor();
+  assert.match(page.url(), /\/editor\//);
   await id("change-template").click();
   await id("template-ats").click();
   await id("use-template").click();
   await preview.locator('[data-template="ats"]').waitFor();
-  for (const expected of ["Accountant", "Acme Trading", "Royal University of Phnom Penh", "QuickBooks"]) {
+  for (const expected of ["Accountant", "Acme Trading", "Royal University of Phnom Penh", "QuickBooks", "Bachelor's degree"]) {
     assert.ok((await preview.innerText()).includes(expected), `missing after template change: ${expected}`);
   }
   await id("tab-check").click();
   await page.getByText("Completeness").waitFor();
   await id("tab-design").click();
-  assert.equal((await id("current-template").textContent()).trim().length > 0, true);
   await id("tab-content").click();
+  // A summary already written is never replaced silently: the draft is offered beside it.
+  await id("section-summary").click();
+  await id("summary-box").fill("i do accounting");
+  await id("write-summary").click();
+  await id("suggestion").waitFor();
+  await page.getByRole("button", { name: "Keep mine" }).click();
+  assert.equal(await id("summary-box").inputValue(), "i do accounting");
   step("CV survives reload; undo works; changing template keeps content; review and style tools open");
 
   // --- Downloads ---
@@ -258,6 +274,10 @@ try {
   assert.match(await description.inputValue(), /Led a team of 12/);
   await page.getByRole("button", { name: "Restore my text" }).first().click();
   assert.equal(await description.inputValue(), "i prepare monthly financial reports");
+  await id("ai-longer").first().click();
+  await id("suggestion").waitFor();
+  assert.equal(aiRequests[2].body.content.length, "longer");
+  await page.getByRole("button", { name: "Keep mine" }).click();
   await saved();
   step("cloud AI: consent gate, one field sent, integrity warning, accept / keep mine / restore");
 

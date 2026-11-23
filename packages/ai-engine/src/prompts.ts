@@ -17,7 +17,11 @@ export function buildPrompt(request: AITaskRequest): { system: string; user: str
       return {
         system:
           `You rewrite CV text so it is clear, concise and professional. Write in ${LANGUAGE_NAME[request.language]}. ` +
-          `${integrity} Keep the same meaning. Respond with JSON only: {"text": "..."}.`,
+          `${integrity} ` +
+          (request.content.length === "longer"
+            ? "Write a fuller version: say the same things in more complete, specific sentences (or bullet lines starting with \"- \" for duties), about two to three times as long. Do not add any fact that is not in the input. "
+            : "Keep the same meaning. ") +
+          `Respond with JSON only: {"text": "..."}.`,
         user:
           `CV section: ${request.content.kind}` +
           (request.content.position ? `\nPosition: ${request.content.position}` : "") +

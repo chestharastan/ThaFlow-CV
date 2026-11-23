@@ -16,7 +16,8 @@ import {
   setSpokenLanguages,
   type LanguageLevel,
 } from "@thaflow/questionnaire";
-import { Field, Select, TagInput, TextArea, TextInput, cx } from "@/components/ui";
+import { draftSummary } from "@thaflow/rule-engine";
+import { Button, Field, Select, TagInput, TextArea, TextInput, cx } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
 import { BOX_HEIGHT, PLACEHOLDER } from "./date-input";
@@ -317,6 +318,7 @@ export function AboutQuestion({ cv, onNext }: QuestionProps) {
   const update = useEditor((s) => s.update);
   const heading = useId();
   const box = useId();
+  const draft = draftSummary(cv);
   return (
     <QuestionForm onSubmit={onNext}>
       <Heading id={heading} htmlFor={box}>
@@ -334,6 +336,14 @@ export function AboutQuestion({ cv, onNext }: QuestionProps) {
         onKeyDown={submitOnModEnter}
         data-testid="create-about"
       />
+      {draft && !cv.summary.trim() && (
+        <div className="-mt-2 mb-6">
+          {/* Written from the answers already given, on this device. */}
+          <Button onClick={() => update((d) => void (d.summary = draft), "create.about")} data-testid="create-about-write">
+            {t("write.forMe")}
+          </Button>
+        </div>
+      )}
       <Primary>{t(primaryAction(cv, "about") === "skip" ? "create.skip" : "create.next")}</Primary>
     </QuestionForm>
   );
