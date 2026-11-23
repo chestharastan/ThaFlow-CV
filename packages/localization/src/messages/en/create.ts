@@ -41,6 +41,7 @@ export const create = {
   "create.error.no-text": "That file has no text that can be read. It may be a scan.",
   "create.error.encrypted": "That file is protected by a password.",
   "create.error.corrupt": "That file could not be opened.",
+  "create.error.garbled": "The text in this PDF could not be read correctly. Try the Word file, or type it instead.",
   "create.error.empty": "No CV details could be found in that file.",
   "create.error.storage": "This browser is blocking storage, so your CV cannot be saved.",
 

@@ -1,6 +1,6 @@
-# ThaFlow CV redesign brief
+# ThaFlow CV design
 
-This is the shared brief for the redesign. Read all of it before changing anything.
+What the product is meant to feel like, and why. Read this before changing the interface.
 
 ## What the product owner asked for
 
@@ -41,11 +41,7 @@ Navigation contract (all client-side, static export, trailing slashes):
 
 ## Design language
 
-> **This section was updated after the product owner reviewed the first direction and it takes
-> precedence over anything in your task description that conflicts with it** (for example "text on
-> white", "white page", "no cards", or using `bg-paper` for the page).
->
-> Their follow-up, in their words: *"Make this more professional … like that logo [the cream ThaFlow
+> The product owner's follow-up after seeing the first direction, in their words: *"Make this more professional … like that logo [the cream ThaFlow
 > mark], not the black one; the black is just a variant. Similar to that design [ThaOCR] but I want
 > it more simple. Make it simple and feel professional and premium."*
 
@@ -111,78 +107,3 @@ What makes it feel **professional and premium** is restraint and precision, not 
   and `km` message modules. Check each screen in Khmer: longer strings must not overflow, and nothing
   may rely on uppercase, italics or letter-spacing (Khmer has none; the global CSS already zeroes
   letter-spacing in Khmer).
-
-## Shared code (already in place — do not edit)
-
-| File | What it gives you |
-| --- | --- |
-| `apps/web/app/globals.css` | Tokens: `bg-canvas` (page), `bg-paper` (surfaces), `bg-surface` (quiet fill), `bg-cream` / `bg-cream-strong` (the one tint), `text-ink`, `text-ink-soft`, `text-muted`, `text-faint`, `border-line`, `border-line-strong`, `bg-brand`, `text-on-brand`, `text-danger`, `bg-danger-soft`, `text-warn`, `bg-warn-soft`, `text-ok`, `bg-ok-soft`, `shadow-soft`, `shadow-pop`, `shadow-page`, `animate-enter`. |
-| `apps/web/components/ui.tsx` | `Button` (`variant`: primary / secondary / ghost / danger; `size`: sm / md / lg), `Field`, `TextInput`, `TextArea`, `Select` (all take `controlSize`: sm / md / lg), `TagInput`, `Card` (white, hairline, 16px radius), `cx`. |
-| `apps/web/components/app-header.tsx` | `AppHeader` (logo left linking home, `center` slot, actions as children) and `LanguageToggle`. Use this header on every screen. |
-| `apps/web/components/logo.tsx` | `Logo` (the ThaFlow mark + wordmark) and `LogoMark` (the mark alone). |
-| `apps/web/lib/app-context.tsx` | `useApp()` → `{ t, settings, updateSettings, ready }`; `getStore()` → the IndexedDB store (`listCVs`, `getCV`, `saveCV`, `deleteCV`, `duplicateCV`, …). |
-| `apps/web/lib/editor-store.ts` | `useEditor()` zustand store for the CV being worked on: `load(id)`, `cv`, `status` (`loading` / `ready` / `missing`), `update(mutator, coalesceKey?)`, `replace(cv)`, `undo`, `redo`, `flush()`, `saveState`. Autosaves to IndexedDB. Use it on every screen that edits a CV. |
-| `apps/web/lib/ai.ts` | `useAI()` (optional AI; off by default). |
-| `packages/cv-core` | `CVDocument` schema, factories (`createEmptyCV`, `createExperience`, …), dates helpers. The CV document is the single source of truth: screens read and write it, nothing else. |
-| `packages/storage`, `packages/rule-engine`, `packages/ai-engine`, `packages/export-engine/src/browser.ts` | Storage, rules, AI orchestration, download/print helpers. |
-| `packages/localization/src/translator.ts`, `messages/*/index.ts`, `messages/*/common.ts` | Translator and shared strings (`field.*`, `section.*`, `action.*`, `add.*`, …). |
-
-If you need something from a shared file that is not there, build it inside your own area and list it
-under "requests for the integrator" in your final report. Do not edit shared files.
-
-## Contracts between areas
-
-**Messages.** One module per area, English and Khmer side by side:
-`packages/localization/src/messages/{en,km}/{common,landing,create,gallery,editor,settings}.ts`.
-Each area owns its module in both languages and may freely add, rename and delete keys in it. English
-defines the keys (`as const`); Khmer is `Partial<Record<keyof typeof en, string>>`. Reuse `common.*`
-keys where they fit; do not edit `common.ts`. Prefix your keys with your area name to avoid clashes.
-
-**CV import** — `@thaflow/import-engine` (`packages/import-engine/src/types.ts` is the contract):
-
-```ts
-importCVFile(file: File, options?: { pdfWorkerSrc?: string }): Promise<ImportResult>  // throws ImportError(code)
-createCVFromImport(data: ImportedCV, base?: CVDocument): CVDocument
-isImportEmpty(data: ImportedCV): boolean
-detectImportSource(file): "pdf" | "docx" | null
-MAX_IMPORT_BYTES
-```
-
-In the web app, pass `pdfWorkerSrc: "/pdf.worker.min.mjs"` (copied into `public/` by
-`apps/web/scripts/copy-pdf-worker.mjs`, which runs before `dev` and `build`). The current
-implementation is a placeholder returning fixed sample data; the real one is being written in parallel
-against the same signatures.
-
-**Templates** — `@thaflow/template-engine`:
-
-```ts
-templates: CVTemplate[]            // the registry, in display order (10 today, 30 after the redesign)
-getTemplate(id): CVTemplate        // unknown ids fall back to the first template
-TEMPLATE_CATEGORIES                // ["simple", "modern", "classic", "creative"]; template.category is one of these
-<CVPreview cv template? pageStyle? />   // pure render of a CV; pageStyle emits the @page rule (use on the printed copy only)
-resolveAppearance, COLOR_PRESETS, FONT_OPTIONS, templateCss, printCss
-```
-
-A template is identified by `template.id` and shown by `template.name`. The CV stores its choice in
-`cv.appearance.templateId`. Code outside the template engine must not depend on any other template
-field except `category` and `layout.columns`.
-
-**Questions** — `@thaflow/questionnaire` defines the question list and its branching as data and pure
-functions over the CV document; the web app only renders it.
-
-## Working rules
-
-- You are working in your own git worktree of the repository. Start with `pnpm install --prefer-offline`
-  at the repository root.
-- Stay inside the files you were given. Other people are changing the rest at the same time.
-- `pnpm typecheck` and `pnpm test` must pass when you finish. The old end-to-end script
-  (`apps/web/e2e/smoke.mjs`) describes the previous design and is expected to fail; leave it alone.
-- Look at what you build. For interface work, run the app (`node apps/web/scripts/copy-pdf-worker.mjs`,
-  then `pnpm --filter @thaflow/web exec next dev -p <your port>`) and take Playwright screenshots
-  (`require("playwright")` works from any directory; `chromium.launch()` needs no options) at
-  1280×800 and 390×844, in English and in Khmer. Read the screenshots and fix what looks wrong
-  before you finish. Stop your dev server when you are done.
-- Finish by committing everything in your worktree (do not push), then run
-  `git branch -f redesign/<your-area> HEAD` so the work can be found, and report the commit SHA.
-- Do not add dependencies. Everything needed is installed; if something is truly missing, say so in
-  your report instead of installing it.

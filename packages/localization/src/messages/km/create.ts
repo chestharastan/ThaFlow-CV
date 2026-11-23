@@ -42,6 +42,7 @@ export const create: Partial<Record<keyof typeof en, string>> = {
   "create.error.no-text": "ឯកសារនេះគ្មានអក្សរដែលអាចអានបានទេ ប្រហែលជាឯកសារស្កេន។",
   "create.error.encrypted": "ឯកសារនេះត្រូវបានការពារដោយលេខសម្ងាត់។",
   "create.error.corrupt": "មិនអាចបើកឯកសារនេះបានទេ។",
+  "create.error.garbled": "មិនអាចអានអក្សរក្នុងឯកសារ PDF នេះបានត្រឹមត្រូវទេ។ សូមសាកល្បងឯកសារ Word ឬវាយបញ្ចូលដោយខ្លួនឯង។",
   "create.error.empty": "រកមិនឃើញព័ត៌មាន CV ក្នុងឯកសារនេះទេ។",
   "create.error.storage": "កម្មវិធីរុករកនេះមិនអនុញ្ញាតឱ្យរក្សាទុកទិន្នន័យ ដូច្នេះមិនអាចរក្សាទុក CV របស់អ្នកបានទេ។",
 

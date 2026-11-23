@@ -86,10 +86,17 @@ html:lang(km) body {
 html:lang(km) * {
   letter-spacing: 0 !important;
 }
+/* Tight Latin headline leading clips Khmer subscripts and stacked vowels. */
+html:lang(km) :is(h1, h2, h3) {
+  line-height: 1.45;
+}
 
-:focus-visible {
-  outline: 2px solid var(--color-ink);
-  outline-offset: 2px;
+/* In the base layer so a component can replace it (inputs show focus with their border instead). */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
 }
 
 ::selection {

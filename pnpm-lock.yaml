@@ -171,6 +171,13 @@ importers:
       pdfjs-dist:
         specifier: ^5.0.0
         version: 5.7.284
+    devDependencies:
+      '@thaflow/export-engine':
+        specifier: workspace:*
+        version: link:../export-engine
+      '@thaflow/template-engine':
+        specifier: workspace:*
+        version: link:../template-engine
 
   packages/localization:
     dependencies:

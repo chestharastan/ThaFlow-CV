@@ -7,7 +7,7 @@ import { Select, TextInput, cx } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
 
 /** A native select is a little shorter than a text box of the same size; this lines them up. */
-export const BOX_HEIGHT = "h-[3.625rem]";
+export const BOX_HEIGHT = "";
 /** A select showing its empty option reads as a placeholder, like an empty text box. */
 export const PLACEHOLDER = "text-faint!";
 

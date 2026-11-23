@@ -67,6 +67,8 @@ const controlSizes: Record<ControlSize, string> = {
   md: "rounded-lg px-3 py-2 text-sm",
   lg: "rounded-xl px-4 py-3 text-base",
 };
+/** Fixed heights for single-line controls so an input and a select on one row line up exactly. */
+const controlHeights: Record<ControlSize, string> = { sm: "h-8", md: "h-10", lg: "h-12" };
 const controlInvalid = "border-danger hover:border-danger focus:border-danger focus:ring-danger/15";
 
 /** Label + control + hint or error. Pass the generated id to the control. */
@@ -111,7 +113,7 @@ export function TextInput({
     <input
       {...props}
       aria-invalid={invalid || undefined}
-      className={cx(controlBase, controlSizes[controlSize], invalid && controlInvalid, className)}
+      className={cx(controlBase, controlSizes[controlSize], controlHeights[controlSize], invalid && controlInvalid, className)}
     />
   );
 }
@@ -137,7 +139,7 @@ export function Select({
   className,
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & { controlSize?: ControlSize }) {
-  return <select {...props} className={cx(controlBase, controlSizes[controlSize], "appearance-auto", className)} />;
+  return <select {...props} className={cx(controlBase, controlSizes[controlSize], controlHeights[controlSize], "py-0!", className)} />;
 }
 
 /** Chip input for short lists (skills, technologies). Enter or comma adds; Backspace on empty removes the last. */

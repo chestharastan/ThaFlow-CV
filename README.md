@@ -1,8 +1,9 @@
 # ThaFlow CV
 
-A privacy-first CV builder for Khmer and English. No account, no CV database: the CV lives in the
-user's browser (IndexedDB), and the app is a static site with nothing server-side to store it in.
-AI is optional — creating, editing, checking and exporting a CV all work without it and offline.
+A CV builder in the ThaFlow family, for Khmer and English. Someone answers a few questions, picks one
+of 30 templates and downloads their CV as PDF or Word. There is no account and no CV database: the CV
+lives in the person's browser (IndexedDB), and the app is a static site with nothing server-side to
+store it in. AI is optional; everything works without it and offline.
 
 ## Quick start
 
@@ -15,77 +16,76 @@ pnpm dev          # http://localhost:3000
 pnpm test         # unit tests for the packages (Vitest)
 pnpm typecheck
 pnpm build        # static site in apps/web/out — host it anywhere
-pnpm e2e          # browser smoke test against the build (needs Playwright + Chromium)
+pnpm e2e          # browser test of the whole flow against the build (needs Playwright + Chromium)
 ```
 
 The optional cloud AI server is separate: see [`apps/ai-server/README.md`](apps/ai-server/README.md).
+
+## The product
+
+| Route | Screen |
+| --- | --- |
+| `/` | What this does, and **Create CV**. CVs already on this device are listed underneath. |
+| `/create/` | One question per screen. First: "Do you already have a CV?" If yes, a PDF or Word file can be read on the device to fill in the answers; otherwise, or if they prefer, they type. |
+| `/templates/?id=` | 30 templates, each rendered with the person's own answers. |
+| `/editor/?id=` | The finished CV: preview, download (PDF, Word, backup file), and edit anything. |
+| `/settings/` | Interface language, optional AI, local data. |
+
+The look and the reasoning behind it are in [`docs/design.md`](docs/design.md). The checks the product
+must pass are in [`docs/acceptance.md`](docs/acceptance.md).
 
 ## Layout
 
 ```
 apps/
-  web/              Next.js static PWA: Home, New CV, Guided questions, Editor, Settings
+  web/              Next.js static PWA
   ai-server/        FastAPI, stateless. Only needed for the optional Cloud AI mode
 packages/
   cv-core/          CV schema (Zod), factories, migrations, JSON backup format, dates  ← source of truth
-  rule-engine/      Rule registry, validation/quality rules, classification, AI-output integrity checks
+  questionnaire/    The questions, their order and branching, as data and pure functions
+  import-engine/    Reads an existing CV from PDF or Word on the device and recognises its contents with rules
+  template-engine/  30 templates as configuration over one React/CSS renderer; print stylesheet
+  export-engine/    Word (DOCX) renderer, PDF via browser print, backup download
+  rule-engine/      Validation and quality rules, text classification, AI-output integrity checks
   storage/          Dexie/IndexedDB store: CVs, revisions, suggestions, settings
-  questionnaire/    Step order per audience and progress, written against the CV schema
-  template-engine/  10 templates as configuration over one React/CSS renderer; print stylesheet
-  export-engine/    DOCX renderer, PDF via browser print, backup download
   ai-engine/        Provider interface, orchestrator, cloud provider, local-runtime adapter contract
-  localization/     UI messages and in-document labels, English and Khmer
+  localization/     Interface messages (one module per screen) and in-document labels, English and Khmer
 ```
 
 Packages are plain TypeScript with no Next.js dependency (only `template-engine` needs React), so a
-desktop or native shell can reuse them.
+desktop or native shell, or another ThaFlow product, can reuse them.
 
 ## How the pieces fit
 
-- **One document.** The questionnaire and editor write `CVDocument`; rules read it; templates and
-  the DOCX renderer render it; storage and backups validate it through `migrateCV`.
-- **Rules own correctness.** Dates, email format, duplicates, completeness and vague wording are
-  deterministic rules with ids (`DATE-002`, `SKL-001`, …), each with a severity and localized
-  message. They never block export.
-- **AI owns wording only.** The orchestrator picks a provider from the user's explicit choice, never
-  falls back from local to cloud, validates output against a schema, and runs integrity checks that
-  flag numbers or claims not present in the user's text. Results become *suggestions* shown next to
-  the original; nothing changes until the user accepts, and accepted text can be restored.
-- **Cloud requests are minimal.** One field's text plus task and language. No ids, cookies or
-  referrer. The server rejects unknown fields, stores nothing and logs no bodies.
+- **One document.** The questions and the editor write `CVDocument`; rules read it; the templates and
+  the Word renderer render it; storage, import and backups validate it.
+- **Importing an existing CV** happens entirely in the browser: pdf.js (worker served from the app's
+  own origin) or a zip reader extracts lines with layout hints, and a rule-based recogniser sorts them
+  into sections. Only what is in the file is used; nothing is guessed, and personal data such as date
+  of birth, gender or ID numbers is dropped.
+- **Rules own correctness.** Dates, email format, duplicates and completeness are deterministic rules
+  with ids and localized messages. They never block a download.
+- **AI owns wording only**, when the person turns it on. Output is schema-checked, compared with the
+  original for invented numbers or claims, and shown as a suggestion next to the person's own text.
+- **Cloud requests are minimal.** One field's text plus task and language. No ids, cookies or referrer.
 
-## Status against the specification
+## Brand
 
-| Area | State |
-| --- | --- |
-| Multiple local CVs, autosave, undo/redo, revisions, duplicate, delete, clear all data | Done |
-| Guided questionnaire per audience; full manual editor; section reorder/hide | Done |
-| Rule engine (21 rules), completeness score, inline field errors | Done |
-| 10 templates, accent colour, fonts, live preview | Done |
-| PDF (browser print), DOCX (own renderer), JSON backup and restore | Done |
-| Khmer + English UI and documents, bundled Khmer fonts | Done |
-| Offline app shell (service worker), installable PWA | Done |
-| Cloud AI: consent gate, rewrite, translate, free-text extraction, stateless server | Done; server's Claude provider not exercised against the live API in this repo's tests |
-| On-device AI | Interface only (`LocalRuntime`). No model is bundled until one passes device and Khmer evaluation |
-| Import existing CV from PDF/DOCX, job matching, cover letters | Not started |
-| Optional passphrase encryption of local data | Not started |
+Colours, type and the logo follow ThaFlow and ThaOCR. Tokens live in `apps/web/app/globals.css`; the
+mark is `apps/web/components/logo.tsx` (also `public/icon.svg` and `public/brand/thaflow-mark.svg`).
 
 ## Known limitations
 
-- **PDF pagination.** Multi-page CVs print, but pages after the first have no top margin, and a
-  sidebar's background colour stops at the end of the content on later pages.
-- **DOCX layout.** Two-column templates export as one column so the file stays easy to edit. Khmer
+- **Khmer PDFs cannot be imported reliably.** PDF files usually store Khmer as glyphs without the
+  letters behind them, so the text comes out damaged. The app detects this and says so rather than
+  importing wrong letters. Khmer Word files import correctly.
+- **Importing from PDF depends on the layout.** In testing against this app's own templates, 23 of 25
+  English layouts were read completely; unusual designs lose some entries, and a name set in
+  letter-spaced capitals can lose the space between words. People review every answer before it is used.
+- **Scanned CVs** have no text to read. (ThaOCR is the ThaFlow product for that.)
+- **Word layout.** Two-column templates export as one column so the file stays easy to edit. Khmer
   text names a Khmer font; Word shows it only if that font is installed.
-- **Khmer checks.** Wording rules (vague/informal language) are English-only. Structural rules apply
-  to both languages.
-- **Local storage is not encrypted** and browsers can evict it; the app requests persistent storage
-  and prompts for backups, but a backup file is the only real safeguard.
-- **Verification so far** is automated (Chromium). DOCX has not been opened in Microsoft Word, and
-  Safari/Firefox and real phones are untested.
-
-## Deviations from the proposed stack
-
-- Plain controlled inputs with a field-definition table instead of React Hook Form: every form
-  writes straight into the one CV document, which is what undo/redo and autosave operate on.
-- A small in-repo translator instead of `next-intl`: the site is a static export with client-side
-  language switching and no locale routes.
+- **On-device AI** has an interface but no bundled model yet.
+- **Local storage is not encrypted** and browsers can evict it; the backup file is the real safeguard.
+- **Verification** is automated in Chromium. Word files have not been opened in Microsoft Word, and
+  Safari, Firefox and real phones are untested.

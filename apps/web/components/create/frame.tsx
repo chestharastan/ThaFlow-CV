@@ -25,7 +25,7 @@ export function Frame({
 }) {
   const { t } = useApp();
   return (
-    <div className="flex min-h-dvh flex-col bg-paper">
+    <div className="flex min-h-dvh flex-col">
       {progress !== undefined && (
         <div
           className="fixed inset-x-0 top-0 z-10 h-0.5 bg-line"

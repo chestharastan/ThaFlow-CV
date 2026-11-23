@@ -63,7 +63,9 @@ export type ImportErrorCode =
   /** Password-protected. */
   | "encrypted"
   /** Could not be opened. */
-  | "corrupt";
+  | "corrupt"
+  /** The text layer is damaged (typical of Khmer in PDFs): what could be read would be wrong. */
+  | "garbled";
 
 export class ImportError extends Error {
   constructor(public readonly code: ImportErrorCode) {

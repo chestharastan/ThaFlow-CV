@@ -7,7 +7,8 @@ import { CVPreview, type CVTemplate } from "@thaflow/template-engine";
 const A4_WIDTH_PX = 793.7; // 210mm at 96dpi
 
 /** On-screen preview: the real A4 render, scaled to fit its container. */
-export function ScaledPreview({ cv, template, maxScale = 1 }: { cv: CVDocument; template?: CVTemplate; maxScale?: number }) {
+/** `bare` drops the sheet's own border and shadow, for use inside a card that already has them. */
+export function ScaledPreview({ cv, template, maxScale = 1, bare }: { cv: CVDocument; template?: CVTemplate; maxScale?: number; bare?: boolean }) {
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
@@ -32,7 +33,7 @@ export function ScaledPreview({ cv, template, maxScale = 1 }: { cv: CVDocument; 
       <div
         ref={inner}
         style={{ width: A4_WIDTH_PX, transform: `scale(${scale})`, transformOrigin: "top left", visibility: scale ? "visible" : "hidden" }}
-        className="mx-auto shadow-lg ring-1 ring-slate-200"
+        className={bare ? "mx-auto bg-paper" : "mx-auto bg-paper shadow-page ring-1 ring-line"}
       >
         <CVPreview cv={cv} template={template} />
       </div>
