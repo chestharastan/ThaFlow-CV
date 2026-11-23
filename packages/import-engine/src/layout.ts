@@ -27,6 +27,8 @@ export interface Item {
 export interface PageItems {
   width: number;
   items: Item[];
+  /** Positions were measured from a picture of the page, so they are a point or two out. */
+  approximate?: boolean;
 }
 
 interface Segment {
@@ -370,6 +372,7 @@ export function linesFromPages(pages: PageItems[]): LaidOutText {
     regions.push(...next);
   }
 
+  const loose = pages.some((page) => page.approximate);
   const fontUse = new Map<string, number>();
   for (const page of pages) for (const item of page.items) fontUse.set(item.font, (fontUse.get(item.font) ?? 0) + item.str.trim().length);
   const bodyFont = fontUse.size > 1 ? [...fontUse.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] : undefined;
@@ -409,6 +412,7 @@ export function linesFromPages(pages: PageItems[]): LaidOutText {
           // Text without spaces (Khmer) has no first word to measure: keep the plain allowance.
           if ([...word].length <= 24) room = Math.min(((below.end - below.x) * [...word].length) / letters + first.size * 0.3, (edge - start) * 0.4);
         }
+        if (loose) room += first.size * 0.6;
         lines.push({
           text: text || right,
           ...(text && right ? { right } : {}),
@@ -416,6 +420,7 @@ export function linesFromPages(pages: PageItems[]): LaidOutText {
           x: Math.round(first.x * 10) / 10,
           // Beside a part set to the right (a date), the text has only the space up to that part.
           ...((rest.length ? first.end >= rest[0]!.x - first.size * 3.2 : end >= edge - room) ? { wraps: true } : {}),
+          ...(loose ? { loose: true } : {}),
           ...(bodyFont !== undefined && first.font !== bodyFont ? { emph: true } : {}),
           ...(bodyFont !== undefined && first.lastFont !== first.font ? { tail: first.lastFont !== bodyFont } : {}),
         });

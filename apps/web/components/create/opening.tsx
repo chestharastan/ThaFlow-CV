@@ -2,10 +2,11 @@
 
 import { useEffect, useId, useRef } from "react";
 import type { CVDocument } from "@thaflow/cv-core";
-import type { ImportErrorCode, ImportResult } from "@thaflow/import-engine";
+import type { ImportErrorCode, ImportResult, OcrProgress } from "@thaflow/import-engine";
 import type { MessageKey } from "@thaflow/localization";
 import { answerOpening, type OpeningQuestionId } from "@thaflow/questionnaire";
 import { useApp } from "@/lib/app-context";
+import { ocrOptions } from "@/lib/ocr";
 import { Choice, Choices, ErrorLine, Heading, Primary, QuestionForm } from "./frame";
 
 /** Why the opening could not go on. Import codes come from the import engine; the rest are ours. */
@@ -14,7 +15,7 @@ export type OpeningFailure = ImportErrorCode | "empty" | "storage";
 /** Where reading a file has got to. Lives in the flow so Back can step out of it. */
 export type ImportState =
   | { phase: "idle"; failure?: OpeningFailure }
-  | { phase: "reading" }
+  | { phase: "reading"; progress?: OcrProgress }
   | { phase: "found"; result: ImportResult; fileName: string };
 
 /** Turns what a file contained into a CV, on top of `base` (which supplies the id and everything the file lacks). */
@@ -23,7 +24,17 @@ export type BuildFromImport = (base: CVDocument) => CVDocument;
 // The import engine (PDF and Word readers) is only loaded when someone picks a file.
 const loadEngine = () => import("@thaflow/import-engine");
 
-const ACCEPT = ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+// Pictures too: a photo of a printed CV, a screenshot, or a scan. They are read on the device like the rest.
+const ACCEPT = ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*,.heic,.heif,.tif,.tiff";
+
+/** What the reader is doing, in words. Null while there is nothing more specific to say than "Reading…". */
+function progressText(t: ReturnType<typeof useApp>["t"], progress: OcrProgress | undefined): string {
+  if (!progress) return t("create.source.reading");
+  if (progress.stage === "download") return t("create.source.downloading", { percent: Math.min(99, Math.floor((progress.loaded / Math.max(1, progress.total)) * 100)) });
+  if (progress.stage === "prepare") return t("create.source.preparing");
+  const percent = progress.total ? Math.floor((progress.done / progress.total) * 100) : 0;
+  return progress.pages > 1 ? t("create.source.readingPage", { page: progress.page, pages: progress.pages, percent }) : t("create.source.readingPicture", { percent });
+}
 
 export function StartQuestion({
   failure,
@@ -81,7 +92,14 @@ export function SourceQuestion({
     let next: ImportState;
     try {
       const engine = await loadEngine();
-      const result = await engine.importCVFile(file, { pdfWorkerSrc: "/pdf.worker.min.mjs" });
+      const result = await engine.importCVFile(file, {
+        pdfWorkerSrc: "/pdf.worker.min.mjs",
+        pdfWasmUrl: "/pdfjs/wasm/",
+        // Only used for pictures and for PDFs without usable text. Progress is shown because it takes a while.
+        ocr: ocrOptions((progress) => {
+          if (mine === run.current) onState({ phase: "reading", progress });
+        }),
+      });
       next = engine.isImportEmpty(result.data) ? { phase: "idle", failure: "empty" } : { phase: "found", result, fileName: file.name };
     } catch (error) {
       const code = error instanceof Error && error.name === "ImportError" ? (error as Error & { code?: ImportErrorCode }).code : undefined;
@@ -125,7 +143,7 @@ export function SourceQuestion({
           )}
           {warnings.length > 0 && (
             <p className="mt-3 text-sm text-warn" data-testid="create-found-warning">
-              {t("create.found.warning")}
+              {t(warnings.includes("read-from-image") ? "create.found.pictureWarning" : "create.found.warning")}
             </p>
           )}
         </div>
@@ -152,9 +170,14 @@ export function SourceQuestion({
         }}
       />
       {state.phase === "reading" ? (
-        <p role="status" className="flex min-h-16 items-center text-lg text-muted" data-testid="create-reading">
-          {t("create.source.reading")}
-        </p>
+        <div role="status" className="min-h-16" data-testid="create-reading">
+          <p className="text-lg text-muted tabular-nums">{progressText(t, state.progress)}</p>
+          {state.progress?.stage === "download" && (
+            <p className="mt-2 text-sm text-muted" data-testid="create-reading-note">
+              {t("create.source.downloadNote", { size: Math.round(state.progress.total / 1_000_000) })}
+            </p>
+          )}
+        </div>
       ) : (
         <>
           {state.failure && (

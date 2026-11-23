@@ -53,8 +53,10 @@ const joined = (line: Line) => (line.right ? `${line.text}  ${line.right}` : lin
 const isBullet = (line: Line) => Boolean(line.bullet) || isBulletText(line.text);
 const titleLike = (line: Line) => !isBullet(line) && line.text.length <= 90 && !SENTENCE_END.test(line.text) && !TECH_LABEL.test(line.text) && line.text.split(/\s+/).length <= 14;
 
+/** How far apart two left edges must be to count as different. Measured from a picture, an edge is a few points out. */
+const slack = (line: Line) => (line.loose ? Math.max(3, (line.size ?? 10) * 0.6) : 3);
 /** A line set further in than another: the text of a list item, when the bullet itself is not in the file. */
-const indentedFrom = (line: Line, from: Line) => line.x !== undefined && from.x !== undefined && line.x > from.x + 3;
+const indentedFrom = (line: Line, from: Line) => line.x !== undefined && from.x !== undefined && line.x > from.x + slack(line);
 
 /** A line that stops on a word which cannot end a phrase ("Bachelor of", "Data Science and") carries on below. */
 const DANGLING = /(?:\b(?:and|of|in|for|the|to|at|with|on|a|an)|[&,،])$/i;
@@ -86,7 +88,7 @@ function unwrap(lines: Line[], options: { anyIndent?: boolean; list?: boolean; c
     let joins = false;
     if (previous && !fresh) {
       const sameStyle = Boolean(previous.tail ?? previous.emph) === Boolean(line.emph) && Math.abs((previous.size ?? 0) - (line.size ?? 0)) <= 0.6;
-      const hanging = isBulletText(previous.text) ? 18 : 3;
+      const hanging = isBulletText(previous.text) ? 18 : slack(line);
       const aligned = options.anyIndent || previous.x === undefined || line.x === undefined || (line.x <= previous.x + hanging && line.x >= previous.x - 60);
       const midPhrase = DANGLING.test(previous.text) || /\p{L}-$/u.test(previous.text);
       // In a list of names a line end is normally the end of an item. Only a comma, a hyphen, or one stray
@@ -98,8 +100,9 @@ function unwrap(lines: Line[], options: { anyIndent?: boolean; list?: boolean; c
         ? midPhrase || (Boolean(previous.wraps) && (/^\p{Ll}/u.test(line.text) || (/[,،]/.test(previous.text) && !/[,،;]/.test(line.text) && line.text.split(/\s+/).length <= 2)))
         : options.contact
           ? midPhrase || /[@/][^\s]*[.@/_-]$/.test(previous.text) || (Boolean(previous.wraps) && !EMAIL.test(previous.text) && !PHONE.test(previous.text) && !URL.test(previous.text))
-          : midPhrase || (Boolean(previous.wraps) && !(OPENS_POINT.test(line.text) && line.x === previous.x));
-      joins = sameStyle && aligned && carries;
+          : midPhrase || (Boolean(previous.wraps) && !OPENS_POINT.test(line.text));
+      // In the header a title broken after "&" or a comma carries on whatever the weight of the two halves.
+      joins = (sameStyle || (Boolean(options.contact) && midPhrase)) && aligned && carries;
     }
     if (previous && joins) {
       const { wraps: _wraps, tail: _tail, ...rest } = previous;
@@ -151,6 +154,8 @@ function splitEntries(lines: Line[]): { entries: Entry[]; loose: Line[] } {
   if (anchors.length === 0) {
     // No dates: split where the document itself emphasises a line, otherwise treat it as one entry.
     const starts = hasEmph ? lines.map((l, i) => (l.emph && titleLike(l) && !(i > 0 && lines[i - 1]!.emph) ? i : -1)).filter((i) => i >= 0) : [];
+    // Text before the first emphasised title is an entry too, when it opens with something like a title.
+    if (starts.length && starts[0]! > 0 && titleLike(lines[0]!) && lines[0]!.text.split(/\s+/).length <= 10) starts.unshift(0);
     const bounds = starts.length ? starts : lines.length ? [0] : [];
     bounds.forEach((start, n) => {
       const chunk = lines.slice(start, bounds[n + 1] ?? lines.length);
@@ -217,7 +222,7 @@ function readBody(body: Line[]): { description: string; technologies: string[] }
       technologies = text.slice(tech[0].length).split(/[,;|·•]/).map((t) => t.trim()).filter(Boolean);
       continue;
     }
-    if (line.bullet || glyph || (baseX !== undefined && line.x !== undefined && line.x > baseX + 3)) out.push(`- ${glyph ? stripBullet(text) : text}`);
+    if (line.bullet || glyph || (baseX !== undefined && line.x !== undefined && line.x > baseX + slack(line))) out.push(`- ${glyph ? stripBullet(text) : text}`);
     else out.push(text);
   }
   return { description: out.join("\n"), technologies };
@@ -397,7 +402,13 @@ function readPersonal(header: Line[], contact: Line[], all: Line[], nameLine: Li
     const kind = label?.[1]?.toLowerCase() ?? "";
     if (!value) return;
     const email = EMAIL.exec(value);
-    if (email) return void (personal.email ??= email[0]);
+    if (email) {
+      personal.email ??= email[0];
+      // A separator misread from a picture ("a@b.com I +855 12 345 678") leaves two things in one piece.
+      const rest = value.replace(email[0], " ").replace(/^[\s|Il,;·-]+|[\s|Il,;·-]+$/g, "");
+      if (rest.length >= 6) take(rest, fromContact);
+      return;
+    }
     if (/linkedin\.com/i.test(value)) return void (personal.linkedin ??= value);
     if (/github\.com/i.test(value)) return void (personal.github ??= value);
     if (/^(address|location|អាសយដ្ឋាន|ទីតាំង)$/.test(kind)) return void (personal.location ??= value);

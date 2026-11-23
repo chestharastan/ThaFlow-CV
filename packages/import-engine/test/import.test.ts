@@ -48,7 +48,8 @@ describe("recognizing a CV from text", () => {
 
   it("reads personal details and drops private data", () => {
     expect(cv.personal).toMatchObject({ fullName: "Sok Dara", headline: "Accountant", email: "dara@example.com", phone: "+855 12 345 678", location: "Phnom Penh, Cambodia" });
-    expect(JSON.stringify(cv)).not.toMatch(/1996|Nationality/);
+    // Ids are random and can contain any digits, so they are left out of the search.
+    expect(JSON.stringify(cv, (key, value) => (key === "id" ? undefined : value))).not.toMatch(/1996|Nationality/);
     expect(cv.language).toBe("en");
   });
 

@@ -10,11 +10,13 @@ import type {
   SkillGroup,
 } from "@thaflow/cv-core";
 
-/** File kinds an existing CV can be read from. */
-export type ImportSource = "pdf" | "docx";
+import type { OcrOptions } from "./ocr";
 
-/** Largest file accepted, checked before any parsing. */
-export const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
+/** File kinds an existing CV can be read from. A picture is a photo, a screenshot or a scan saved as an image. */
+export type ImportSource = "pdf" | "docx" | "image";
+
+/** Largest file accepted, checked before any parsing. Phone photos run to several megabytes. */
+export const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
 
 /**
  * What was recognized in an existing CV. Only information actually present in
@@ -43,7 +45,9 @@ export type ImportWarning =
   /** Khmer text came out of the file damaged (common with PDFs that lack proper text encoding). */
   | "khmer-garbled"
   /** Text was found but very little could be assigned to CV sections. */
-  | "low-confidence";
+  | "low-confidence"
+  /** The text was read from a picture of the page, so letters may be wrong here and there. */
+  | "read-from-image";
 
 export interface ImportResult {
   source: ImportSource;
@@ -54,7 +58,7 @@ export interface ImportResult {
 }
 
 export type ImportErrorCode =
-  /** Not a PDF or DOCX. */
+  /** Not a PDF, a DOCX or a picture. */
   | "unsupported-type"
   /** Larger than MAX_IMPORT_BYTES. */
   | "too-large"
@@ -65,7 +69,11 @@ export type ImportErrorCode =
   /** Could not be opened. */
   | "corrupt"
   /** The text layer is damaged (typical of Khmer in PDFs): what could be read would be wrong. */
-  | "garbled";
+  | "garbled"
+  /** A picture in a format this browser cannot open. */
+  | "image-unreadable"
+  /** The reader for pictures and scans could not be started (first use needs a connection to fetch it). */
+  | "reader-unavailable";
 
 export class ImportError extends Error {
   constructor(public readonly code: ImportErrorCode) {
@@ -77,4 +85,11 @@ export class ImportError extends Error {
 export interface ImportOptions {
   /** URL of the pdf.js worker script served from the app's own origin. Required for PDFs in the browser. */
   pdfWorkerSrc?: string;
+  /** Folder (ending in "/") with pdf.js's image decoders, needed to draw some scanned PDFs. */
+  pdfWasmUrl?: string;
+  /**
+   * How to read pictures: photos, screenshots, and PDFs without usable text. Without it those files
+   * are refused with a clear error, as before. Browser only.
+   */
+  ocr?: OcrOptions;
 }

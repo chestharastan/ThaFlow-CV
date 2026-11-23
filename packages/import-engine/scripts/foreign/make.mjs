@@ -7,9 +7,10 @@
  *   node packages/import-engine/scripts/foreign/make.mjs
  *
  * Needs Playwright with Chromium. The PDFs go to packages/import-engine/test/fixtures/foreign/ and are
- * committed; the PNGs (for trying the image reader) go to packages/import-engine/scripts/out/foreign/.
+ * committed, as are a scan and a phone photo in test/fixtures/pictures/ for the picture reader; the
+ * full-size PNGs go to packages/import-engine/scripts/out/foreign/.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -184,4 +185,20 @@ for (const layout of layouts) {
   writeFileSync(join(images, `${layout.id}.png`), await page.screenshot({ fullPage: true }));
   console.log(layout.id);
 }
+
+// Two harder inputs made from one of the layouts, for the picture reader: a scan (a PDF that is nothing but
+// a picture of the page) and a "phone photo" (paper lying at an angle under uneven light, saved as a JPEG).
+const pictures = join(here, "..", "..", "test", "fixtures", "pictures");
+mkdirSync(pictures, { recursive: true });
+const sheet = `data:image/png;base64,${readFileSync(join(images, "sidebar-left.png")).toString("base64")}`;
+await page.setContent(`<html><body style="margin:0"><img src="${sheet}" style="width:210mm;display:block"></body></html>`);
+writeFileSync(join(pictures, "scan.pdf"), await page.pdf({ format: "A4", printBackground: true }));
+const desk = await browser.newPage({ viewport: { width: 1000, height: 1400 }, deviceScaleFactor: 1 });
+await desk.setContent(`<html><body style="margin:0;background:#6b6257;width:1000px;height:1400px;overflow:hidden">
+  <div style="position:absolute;left:70px;top:60px;width:840px;transform:perspective(2600px) rotateX(5deg) rotateZ(-2.2deg);box-shadow:0 10px 40px rgba(0,0,0,.5)">
+    <img src="${sheet}" style="width:100%;display:block;filter:contrast(.92) brightness(.97)">
+    <div style="position:absolute;inset:0;background:linear-gradient(115deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.22))"></div>
+  </div></body></html>`);
+writeFileSync(join(pictures, "phone-photo.jpg"), await desk.screenshot({ type: "jpeg", quality: 62 }));
+console.log("pictures");
 await browser.close();

@@ -22,10 +22,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f7f7f5" };
 
 // Static hosting cannot set headers, so the policy ships in the document. connect-src stays open to
-// https because the optional cloud AI endpoint is chosen by the user; nothing connects unless they enable it.
+// https because the optional cloud AI endpoint is chosen by the user, and the models that read pictures
+// and scans are fetched once from where ThaOCR publishes them; nothing connects until one of those is used.
+// 'wasm-unsafe-eval' lets those models (and pdf.js's decoders) run as WebAssembly; it does not allow eval.
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
   "worker-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",

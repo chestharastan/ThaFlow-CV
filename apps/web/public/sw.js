@@ -1,7 +1,7 @@
 /* ThaFlow CV service worker: after the first visit the whole app works offline.
    Only same-origin GET requests are cached. CV data lives in IndexedDB and never passes through here,
    and cross-origin requests (model downloads, the optional cloud AI endpoint) are never intercepted. */
-const CACHE = "thaflow-cv-v4";
+const CACHE = "thaflow-cv-v5";
 const PAGES = ["/", "/create/", "/templates/", "/editor/", "/settings/"];
 const EXTRA = ["/manifest.webmanifest", "/icon.svg", "/pdf.worker.min.mjs"];
 const MAX_ASSETS = 300;
@@ -76,8 +76,8 @@ self.addEventListener("fetch", (event) => {
       return response;
     });
 
-  if (url.pathname.startsWith("/_next/static/")) {
-    // Hashed build assets never change: cache first.
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/ort/")) {
+    // Hashed build assets, and the versioned runtime that reads pictures, never change: cache first.
     event.respondWith(caches.match(request).then((hit) => hit || fromNetwork()));
     return;
   }

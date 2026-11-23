@@ -18,3 +18,5 @@ apps/web/AGENTS.md
 apps/web/CLAUDE.md
 packages/template-engine/scripts/out/
 packages/import-engine/scripts/out/
+apps/web/public/ort/
+apps/web/public/pdfjs/

@@ -17,6 +17,8 @@ export interface Line {
   x?: number;
   /** The line runs to the right edge of its column, so the next line probably continues it (PDF). */
   wraps?: boolean;
+  /** Position and size were measured from a picture of the page: small differences mean nothing. */
+  loose?: boolean;
 }
 
 const BULLET = /^\s*(?:[•·▪■●○◦‣∙*➢►▶◆◇❖✓✔★➤→]|[–—-])\s+/;

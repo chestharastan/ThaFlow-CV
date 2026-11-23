@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 const { chromium } = createRequire(import.meta.url)("playwright");
 const root = fileURLToPath(new URL("../out", import.meta.url));
 const shots = fileURLToPath(new URL("./screenshots", import.meta.url));
-const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".woff": "font/woff", ".webmanifest": "application/manifest+json", ".txt": "text/plain" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".woff": "font/woff", ".webmanifest": "application/manifest+json", ".txt": "text/plain", ".wasm": "application/wasm" };
 
 const site = createServer(async (req, res) => {
   let path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
@@ -311,6 +311,11 @@ try {
   assert.ok(loaded.some((f) => /Khmer|Kantumruy|Battambang|Hanuman|Moul/.test(f)), `no Khmer webfont loaded: ${loaded}`);
   await saved();
   await shot("editor-km");
+  // Kept for later: a Khmer PDF has no usable text layer, so importing it means reading the page itself.
+  await page.emulateMedia({ media: "print" });
+  const khmerPdfPath = join(shots, "cv-km.pdf");
+  await page.pdf({ preferCSSPageSize: true, printBackground: true, path: khmerPdfPath });
+  await page.emulateMedia({ media: null });
   step("a Khmer CV renders with Khmer labels, dates and a bundled Khmer font");
 
   // --- Landing with saved CVs; Khmer interface ---
@@ -358,6 +363,51 @@ try {
   await context.setOffline(false);
   step("landing, questions and editing work offline");
 
+  // --- Pictures, scans and Khmer PDFs: read on the device by ThaOCR's models ---
+  // The models are not part of this repository. Point THAFLOW_OCR_MODELS at a folder holding them
+  // (textdet/db_v2.onnx, rec/crnn_m_v3_owner.onnx, rec/crnn_m_v3_owner.vocab.json) to run this part.
+  const modelBase = "https://huggingface.co/Thareah/ThaOCR-models/resolve/main/";
+  if (process.env.THAFLOW_OCR_MODELS) {
+    const fetched = [];
+    await context.route(`${modelBase}**`, async (route) => {
+      const file = route.request().url().slice(modelBase.length);
+      fetched.push(file);
+      await route.fulfill({ status: 200, contentType: "application/octet-stream", headers: { "Access-Control-Allow-Origin": "*" }, body: await readFile(join(process.env.THAFLOW_OCR_MODELS, file)) });
+    });
+    const picture = (name) => fileURLToPath(new URL(`../../../packages/import-engine/test/fixtures/pictures/${name}`, import.meta.url));
+    const importPicture = async (file) => {
+      await page.goto(`${origin}/create/`);
+      await id("create-start-yes").click();
+      await id("create-file-input").setInputFiles(file);
+      await id("create-reading").waitFor();
+      await id("create-found").waitFor({ timeout: 300000 });
+      assert.match(await id("create-found-warning").textContent(), /read from a picture/);
+    };
+    for (const [kind, file] of [["phone photo", picture("phone-photo.jpg")], ["scanned PDF", picture("scan.pdf")]]) {
+      await importPicture(file);
+      assert.match(await id("create-found-name").textContent(), /Dara Sok/, `${kind}: name not read`);
+      assert.match(await id("create-found-counts").textContent(), /2 jobs · 1 school · 2 projects · \d+ skills · 2 languages/, `${kind}: sections not read`);
+      await next();
+      await id(`create-language-en`).click();
+      await next();
+      assert.equal(await id("create-title").inputValue(), "DATA SCIENCE & ENGINEERING", `${kind}: job title not read`);
+      await next();
+      assert.equal(await id("create-email").inputValue(), "dara.sok@example.com", `${kind}: email not read`);
+      assert.equal(await id("create-phone").inputValue(), "+855 12 345 678", `${kind}: phone not read`);
+      assert.equal(await id("create-location").inputValue(), "Sangkat Tek Thla, Khan Sen Sok, Phnom Penh", `${kind}: address not read`);
+      await next();
+      assert.match(await id("create-entry-list").innerText(), /Teaching Assistant[\s\S]*Student Ambassador/, `${kind}: jobs not read`);
+    }
+    await importPicture(khmerPdfPath);
+    assert.match(await id("create-found-name").textContent(), /សុខ/, "Khmer PDF: name not read");
+    assert.match(await id("create-found-counts").textContent(), /1 job/, "Khmer PDF: job not read");
+    // Only the models were fetched, each once: the second and third files were read with the cached copies.
+    assert.deepEqual(fetched.slice().sort(), ["rec/crnn_m_v3_owner.onnx", "rec/crnn_m_v3_owner.vocab.json", "textdet/db_v2.onnx"]);
+    step("a phone photo, a scanned PDF and a Khmer PDF are read on the device; only the reading models are fetched, once");
+  } else {
+    console.log("- skipped: reading pictures and scans (set THAFLOW_OCR_MODELS to a folder with ThaOCR's models)");
+  }
+
   // --- Clear all data ---
   await page.goto(`${origin}/settings/`);
   await id("clear-data").click();
@@ -399,7 +449,7 @@ try {
   await noOverflow("editor edit");
   step("phone: questions (first-job-seeker path), templates and editor fit with no horizontal scroll");
 
-  const unexpected = external.filter((u) => !u.startsWith(`http://127.0.0.1:${aiPort}`));
+  const unexpected = external.filter((u) => !u.startsWith(`http://127.0.0.1:${aiPort}`) && !u.startsWith(modelBase));
   assert.deepEqual(unexpected, [], "unexpected cross-origin requests");
   const realErrors = errors.filter((e) => !/ERR_INTERNET_DISCONNECTED|Failed to load resource/.test(e));
   assert.deepEqual(realErrors, [], "console errors");

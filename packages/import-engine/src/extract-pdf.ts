@@ -6,7 +6,7 @@ const MAX_PAGES = 20;
 
 type PdfJs = typeof import("pdfjs-dist");
 
-async function loadPdfJs(options: ImportOptions): Promise<PdfJs> {
+export async function loadPdfJs(options: ImportOptions): Promise<PdfJs> {
   if (typeof window === "undefined") {
     // Node (tests, scripts): the legacy build runs without a worker or DOM. The specifier is a
     // variable so browser bundlers do not pull this build into the app.
@@ -68,6 +68,8 @@ export function respace(text: string, drawn: string): string | null {
 }
 
 export interface PdfExtraction {
+  /** Pages read (at most MAX_PAGES). */
+  pages: number;
   lines: Line[];
   /** The text exactly as stored in the file, before clean-up, for judging whether it is damaged. */
   raw: string;
@@ -121,5 +123,5 @@ export async function extractPdfLines(bytes: Uint8Array, options: ImportOptions 
     void doc.destroy();
   }
   const { lines, raw, uncertain } = linesFromPages(pages);
-  return { lines, raw, warnings: uncertain ? ["layout-uncertain"] : [] };
+  return { pages: pages.length, lines, raw, warnings: uncertain ? ["layout-uncertain"] : [] };
 }
