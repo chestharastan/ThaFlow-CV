@@ -41,23 +41,54 @@ Navigation contract (all client-side, static export, trailing slashes):
 
 ## Design language
 
-**Text on white.** That is the whole visual idea.
+> **This section was updated after the product owner reviewed the first direction and it takes
+> precedence over anything in your task description that conflicts with it** (for example "text on
+> white", "white page", "no cards", or using `bg-paper` for the page).
+>
+> Their follow-up, in their words: *"Make this more professional … like that logo [the cream ThaFlow
+> mark], not the black one; the black is just a variant. Similar to that design [ThaOCR] but I want
+> it more simple. Make it simple and feel professional and premium."*
 
-- Background is white (`bg-paper`) everywhere. No coloured panels, gradients, shadows, illustrations,
-  hero images, emoji or decorative icons. A hairline (`border-line`) is the strongest container you
-  normally need. `bg-surface` (very light gray) is for hover states and small wells only.
-- Colour comes only from the tokens in `apps/web/app/globals.css`: the ink → paper neutral scale, one
-  brand colour (`bg-brand`, currently black until the official ThaFlow colour is supplied), and
-  `danger` / `warn` for errors and warnings only. **Do not use any other Tailwind palette colour**
-  (`slate-*`, `blue-*`, `emerald-*`, `brand-600`, …). Old classes like `bg-brand-600` or `text-slate-500`
-  no longer produce any style: replace every one you find in files you own.
-- One filled element per screen: the primary action (`<Button variant="primary">`). Everything else is
-  text or outlined.
-- Type does the work. Big, tight headline for the question or page title
-  (`text-3xl sm:text-4xl font-semibold tracking-tight`), comfortable body (`text-base`/`text-lg`),
-  `text-muted` for secondary text. `text-faint` is only for placeholders and disabled text (it does not
-  meet contrast for content).
-- Generous white space; narrow measure (`max-w-xl` for questions, `max-w-2xl` for the landing page).
+**The ThaFlow family look, made simpler.** ThaFlow CV is a sibling of ThaOCR and should look like it
+belongs to the same family. Open the reference screenshots before you design anything:
+`docs/design/reference/thaocr-scan-desktop.png`, `thaocr-scan-mobile.png`, `thaocr-settings-desktop.png`,
+`thaocr-welcome-desktop.png`, and `thaflow-home-desktop.jpg` (the parent brand site).
+
+What to take from ThaOCR:
+
+- A warm off-white page (`bg-canvas`, already on `<body>`), with **white surfaces** (`bg-paper`) for the
+  things people touch or read on: inputs, option buttons, the few cards, menus, the CV sheet.
+- Near-black ink for text and for the one primary button. **Cream (`bg-cream`) is the only tint**: the
+  selected option, the active item, a small chip behind an icon. No blue, no other hue.
+- Hairline borders (`border-line`), soft corners (`rounded-lg` 8px controls, `rounded-xl` 12px large
+  controls, `rounded-2xl` 16px cards), and a barely-there shadow (`shadow-soft`) on raised controls.
+- Inter, with confident headings (weight 600–650, tight tracking) and calm 14–16px body text.
+- The real logo: `<Logo />` (cream stone mark + wordmark) from `components/logo.tsx`.
+
+What to leave out, because this must be **simpler** than ThaOCR:
+
+- No sidebar, no row of status chips, no welcome dialog, no feature bullets, no icon grid.
+- One column, one thing at a time. A screen is a heading, the thing to do, and one primary button.
+- Cards only where they group something real (a list of saved CVs, a settings group, a selectable
+  option). Never a card around a single line of text, and never cards inside cards.
+- Icons only where they carry meaning on their own (back arrow, close, download, check). Thin line
+  icons drawn inline as SVG with `stroke="currentColor"` and 1.5–1.75 stroke width, like ThaOCR's.
+  No emoji, no illustrations, no decorative icons.
+
+What makes it feel **professional and premium** is restraint and precision, not decoration:
+
+- One spacing rhythm, used consistently. Edges line up. Generous space around the one thing that matters.
+- Exactly one filled (black) button per screen; everything else is outlined or plain text.
+- Considered states: hover, focus (crisp ring), selected (cream fill + ink border), disabled, empty,
+  loading, error. Nothing jumps or flashes.
+- Short, confident wording. No exclamation marks.
+- Colour comes only from the tokens in `apps/web/app/globals.css`. **Do not use any other Tailwind
+  palette colour** (`slate-*`, `blue-*`, `emerald-*`, `brand-600`, …): replace every one you find in
+  files you own.
+- Type sizes: page or question heading `text-[28px] sm:text-[32px] font-semibold tracking-[-0.025em]`
+  (`leading-tight`); landing headline may go larger; body `text-[15px]`/`text-base`; secondary text
+  `text-muted`; `text-faint` only for placeholders and disabled text (it fails contrast for content).
+- Narrow measure: `max-w-xl` for questions, `max-w-2xl` for the landing page.
 - Motion is one small thing: `animate-enter` when a new question or screen appears. Nothing else moves.
 
 **No "how to use".** The interface explains itself or it is wrong.
@@ -85,10 +116,10 @@ Navigation contract (all client-side, static export, trailing slashes):
 
 | File | What it gives you |
 | --- | --- |
-| `apps/web/app/globals.css` | Tokens: `text-ink`, `text-ink-soft`, `text-muted`, `text-faint`, `border-line`, `border-line-strong`, `bg-surface`, `bg-paper`, `bg-brand`, `text-on-brand`, `text-danger`, `bg-danger-soft`, `text-warn`, `bg-warn-soft`, `animate-enter`. |
-| `apps/web/components/ui.tsx` | `Button` (`variant`: primary / secondary / ghost / danger; `size`: sm / md / lg), `Field`, `TextInput`, `TextArea`, `Select` (all take `controlSize`: sm / md / lg), `TagInput`, `Card`, `cx`. |
+| `apps/web/app/globals.css` | Tokens: `bg-canvas` (page), `bg-paper` (surfaces), `bg-surface` (quiet fill), `bg-cream` / `bg-cream-strong` (the one tint), `text-ink`, `text-ink-soft`, `text-muted`, `text-faint`, `border-line`, `border-line-strong`, `bg-brand`, `text-on-brand`, `text-danger`, `bg-danger-soft`, `text-warn`, `bg-warn-soft`, `text-ok`, `bg-ok-soft`, `shadow-soft`, `shadow-pop`, `shadow-page`, `animate-enter`. |
+| `apps/web/components/ui.tsx` | `Button` (`variant`: primary / secondary / ghost / danger; `size`: sm / md / lg), `Field`, `TextInput`, `TextArea`, `Select` (all take `controlSize`: sm / md / lg), `TagInput`, `Card` (white, hairline, 16px radius), `cx`. |
 | `apps/web/components/app-header.tsx` | `AppHeader` (logo left linking home, `center` slot, actions as children) and `LanguageToggle`. Use this header on every screen. |
-| `apps/web/components/logo.tsx` | `Logo` wordmark. |
+| `apps/web/components/logo.tsx` | `Logo` (the ThaFlow mark + wordmark) and `LogoMark` (the mark alone). |
 | `apps/web/lib/app-context.tsx` | `useApp()` → `{ t, settings, updateSettings, ready }`; `getStore()` → the IndexedDB store (`listCVs`, `getCV`, `saveCV`, `deleteCV`, `duplicateCV`, …). |
 | `apps/web/lib/editor-store.ts` | `useEditor()` zustand store for the CV being worked on: `load(id)`, `cv`, `status` (`loading` / `ready` / `missing`), `update(mutator, coalesceKey?)`, `replace(cv)`, `undo`, `redo`, `flush()`, `saveState`. Autosaves to IndexedDB. Use it on every screen that edits a CV. |
 | `apps/web/lib/ai.ts` | `useAI()` (optional AI; off by default). |

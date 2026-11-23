@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#ffffff" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f7f7f5" };
 
 // Static hosting cannot set headers, so the policy ships in the document. connect-src stays open to
 // https because the optional cloud AI endpoint is chosen by the user; nothing connects unless they enable it.
@@ -43,7 +43,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {process.env.NODE_ENV === "production" && <meta httpEquiv="Content-Security-Policy" content={csp} />}
         <style dangerouslySetInnerHTML={{ __html: templateCss + printCss }} />
       </head>
-      <body className="bg-paper font-sans text-ink antialiased">
+      <body className="bg-canvas font-sans text-[15px] text-ink antialiased">
         <AppProvider>{children}</AppProvider>
       </body>
     </html>
