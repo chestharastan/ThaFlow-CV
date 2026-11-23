@@ -31,7 +31,8 @@ function sniff(bytes: Uint8Array): ImportSource | null {
 /** Khmer that came out of the file damaged: unmapped glyphs, or vowels written before their consonant. */
 function garbledShare(raw: string): number {
   const khmer = (raw.match(/[\u1780-\u17FF]/g) ?? []).length;
-  const unmapped = (raw.match(/[\u0000-\u0008\uFFFD\uE000-\uF8FF]/g) ?? []).length;
+  // Symbol-font bullets at the start of a line are private-use characters too, and harmless.
+  const unmapped = (raw.replace(/^\s*[\uF000-\uF0FF](?=\s)/gm, "").match(/[\u0000-\u0008\uFFFD\uE000-\uF8FF]/g) ?? []).length;
   const misplaced = (raw.match(/(?:^|[\s.,;:()\u0000-\u0008])[\u17B6-\u17D3]/g) ?? []).length;
   if (khmer < 20) return unmapped > Math.max(5, raw.length * 0.02) ? 1 : 0;
   return (unmapped + misplaced) / khmer;

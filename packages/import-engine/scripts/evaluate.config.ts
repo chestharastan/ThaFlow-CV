@@ -1,3 +1,5 @@
 import { defineConfig } from "vitest/config";
 
-export default defineConfig({ test: { include: [process.env.IMPORT_LINES ? "packages/import-engine/scripts/lines.test.ts" : "packages/import-engine/scripts/evaluate.test.ts"], testTimeout: 600_000 } });
+const script = process.env.IMPORT_LINES ? "lines" : process.env.IMPORT_BRIEF ? "brief" : "evaluate";
+
+export default defineConfig({ test: { include: [`packages/import-engine/scripts/${script}.test.ts`], testTimeout: 600_000 } });

@@ -233,6 +233,22 @@ try {
     await id("create-entry-list").waitFor(); // imported jobs go straight to the list
     assert.match(await id("create-entry-list").innerText(), /Acme Trading/, `${kind}: job not recognised`);
   }
+  // A CV from another tool, in two columns with a letter-spaced job title: columns must not be read across.
+  await page.goto(`${origin}/create/`);
+  await id("create-start-yes").click();
+  await id("create-file-input").setInputFiles(fileURLToPath(new URL("../../../packages/import-engine/test/fixtures/foreign/sidebar-left.pdf", import.meta.url)));
+  await id("create-found").waitFor({ timeout: 30000 });
+  assert.match(await id("create-found-name").textContent(), /Dara Sok/, "two columns: name not recognised");
+  assert.match(await id("create-found-counts").textContent(), /2 jobs · 1 school · 2 projects · 21 skills · 2 languages/, "two columns: sections mixed up");
+  await next();
+  await id(`create-language-en`).click();
+  await next();
+  assert.equal(await id("create-title").inputValue(), "DATA SCIENCE & ENGINEERING", "two columns: job title not recognised");
+  await next();
+  assert.equal(await id("create-location").inputValue(), "Sangkat Tek Thla, Khan Sen Sok, Phnom Penh", "two columns: address not recognised");
+  await next();
+  assert.match(await id("create-entry-list").innerText(), /Teaching Assistant[\s\S]*Student Ambassador/, "two columns: jobs not recognised");
+
   await page.goto(`${origin}/create/`);
   await id("create-start-yes").click();
   await id("create-file-input").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
@@ -240,7 +256,7 @@ try {
   await id("create-source-type").click(); // has a CV but would rather type: same questions as a new person
   await id("create-language-en").waitFor();
   assert.deepEqual(external, [], "importing a file must not touch the network");
-  step("an existing CV (Word and PDF) is read on the device and pre-fills the answers; other files are refused");
+  step("an existing CV (Word, PDF, and a two-column PDF from another tool) is read on the device; other files are refused");
 
   // --- Cloud AI needs an address and explicit consent ---
   await page.goto(`${origin}/settings/`);

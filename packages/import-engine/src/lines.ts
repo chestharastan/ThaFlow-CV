@@ -7,6 +7,8 @@ export interface Line {
   size?: number;
   /** Set in a heavier or different face than the body text, when known. */
   emph?: boolean;
+  /** Whether the line ends in that heavier face, when it differs from how it starts ("Tools: Git, Linux"). */
+  tail?: boolean;
   /** Marked as a heading or title by the document itself (Word styles). */
   heading?: boolean;
   /** A list item. */
@@ -17,7 +19,7 @@ export interface Line {
   wraps?: boolean;
 }
 
-const BULLET = /^\s*(?:[•·▪■●○◦‣∙*]|[–—-])\s+/;
+const BULLET = /^\s*(?:[•·▪■●○◦‣∙*➢►▶◆◇❖✓✔★➤→]|[–—-])\s+/;
 
 export function isBulletText(text: string): boolean {
   return BULLET.test(text);
@@ -30,6 +32,8 @@ export function stripBullet(text: string): string {
 /** Collapse runs of spaces but keep double spaces, which mark a visual gap between items. */
 export function tidy(text: string): string {
   return text
+    // Bullets set in a symbol font (Word's default) come out as private-use characters.
+    .replace(/^\s*[\uF000-\uF0FF]\s+/, "• ")
     .replace(/[\u0000-\u0008\u000B-\u001F\u007F\u200B\u00AD\uFEFF]/g, "")
     .replace(/\u00A0/g, " ")
     .replace(/[ \t]{3,}/g, "  ")
@@ -51,5 +55,7 @@ export function collapseSpaced(text: string): string {
 /** Join a wrapped line to the one before it. Khmer wraps inside a phrase, where a space would be wrong. */
 export function joinWrapped(previous: string, next: string): string {
   const khmer = /[\u1780-\u17FF]$/.test(previous) && /^[\u1780-\u17FF]/.test(next);
-  return previous + (khmer ? "" : " ") + next;
+  // A line broken at a hyphen inside a word ("Scikit-" / "learn") continues without a space.
+  const hyphen = /\p{L}-$/u.test(previous) && /^\p{L}/u.test(next);
+  return previous + (khmer || hyphen ? "" : " ") + next;
 }
