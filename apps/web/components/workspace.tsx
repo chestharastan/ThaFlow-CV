@@ -245,12 +245,20 @@ export function Workspace() {
           {/* The mark and the name beside it both lead home; whose CV this is sits under the name, and can be renamed.
               Undo, redo and the template button give way on a phone (max-sm:hidden: a plain "hidden" would lose
               to the buttons' own display), so the name keeps its room. */}
-          <Link href="/" className="shrink-0 rounded-lg" aria-label={t("nav.home")} title={t("nav.home")} data-testid="home-link">
+          <Link href="/" className="shrink-0 rounded-lg" aria-label="ThaFlow CV" title={t("nav.home")} data-testid="home-link">
             <LogoMark className="h-8 w-8 drop-shadow-[0_0_0.5px_rgba(20,20,20,0.35)]" />
           </Link>
           <div className="flex min-w-0 flex-1 flex-col justify-center pl-1">
-            {/* Same destination as the mark: one link for the keyboard and screen readers, two things to click. */}
-            <Link href="/" tabIndex={-1} aria-hidden="true" className="self-start px-1 leading-none" data-testid="home-wordmark">
+            {/* Same destination as the mark: one link for the keyboard and screen readers, two things to click.
+                Its hit area reaches back to the mark so the logo is one target with a mouse. On a touch screen
+                only the mark leads home: the name is right underneath, and a tap aimed at it must not leave. */}
+            <Link
+              href="/"
+              tabIndex={-1}
+              aria-hidden="true"
+              className="relative self-start px-1 leading-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:content-[''] pointer-coarse:pointer-events-none"
+              data-testid="home-wordmark"
+            >
               <Wordmark className="text-[13px] leading-4" />
             </Link>
             <input
@@ -259,8 +267,9 @@ export function Workspace() {
               aria-label={t("field.cvTitle")}
               placeholder={t("field.cvTitle")}
               data-testid="cv-title"
-              // A ring, not a border: a border would take two of the field's few pixels, and Khmer needs them all.
-              className="h-[22px] w-full min-w-0 max-w-80 truncate rounded bg-transparent px-1 text-[13px] text-muted ring-1 ring-transparent transition-[color,box-shadow,background-color] ring-inset placeholder:text-faint hover:text-ink hover:ring-line focus:bg-paper focus:text-ink focus:ring-line-strong focus:outline-none"
+              // A ring, not a border, and a line as tall as the field: Khmer subscripts need every pixel, and a
+              // field taller than its line cuts them off.
+              className="h-6 w-full min-w-0 max-w-80 truncate rounded bg-transparent px-1 text-[13px] leading-6 text-muted ring-1 ring-transparent transition-[color,box-shadow,background-color] ring-inset placeholder:text-faint hover:text-ink hover:ring-line focus:bg-paper focus:text-ink focus:ring-ink focus:outline-none"
             />
           </div>
           <span className="hidden whitespace-nowrap text-xs text-muted md:inline" aria-live="polite" data-testid="save-state">
@@ -289,6 +298,15 @@ export function Workspace() {
               { value: "edit" as const, label: t("editor.edit"), testId: "view-edit" },
             ]}
           />
+          {/* On a phone undo and redo live here: the header has no room for them, and there is no Ctrl+Z. */}
+          <div className="flex sm:hidden">
+            <Button variant="ghost" className="px-2!" disabled={past.length === 0} onClick={undo} aria-label={t("action.undo")} title={t("action.undo")} data-testid="undo-phone">
+              <Undo />
+            </Button>
+            <Button variant="ghost" className="px-2!" disabled={future.length === 0} onClick={redo} aria-label={t("action.redo")} title={t("action.redo")} data-testid="redo-phone">
+              <Redo />
+            </Button>
+          </div>
           <button type="button" className={cx(templateLink, "sm:hidden")} onClick={() => { setTab("template"); setMobileView("edit"); }}>
             {t("design.template")}
           </button>

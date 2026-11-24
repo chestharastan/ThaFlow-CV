@@ -24,6 +24,11 @@ interface EditorState {
   undo(): void;
   redo(): void;
   flush(): Promise<void>;
+  /**
+   * Let go of the document held in memory, without saving it: for when the CV (`id`), or everything,
+   * has just been deleted. Otherwise a later save would quietly write the deleted CV back.
+   */
+  forget(id?: string): void;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -118,12 +123,27 @@ export const useEditor = create<EditorState>((set, get) => {
         set({ saveState: "error" });
       }
     },
+
+    forget(id) {
+      const { cv } = get();
+      if (!cv || (id !== undefined && cv.id !== id)) return;
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+      lastEdit = { key: "", at: 0 };
+      set({ cv: null, status: "loading", past: [], future: [], saveState: "idle" });
+    },
   };
 });
 
 if (typeof window !== "undefined") {
-  // Best-effort flush when the tab is hidden or closed, so the last keystrokes survive.
-  const flushNow = () => void useEditor.getState().flush();
+  // Best-effort flush when the tab is hidden or closed, so the last keystrokes survive. Only when there is
+  // something unsaved: the document stays in memory after leaving the editor, and writing it out again
+  // regardless would bring back a CV the person has since deleted.
+  const flushNow = () => {
+    if (saveTimer) void useEditor.getState().flush();
+  };
   window.addEventListener("pagehide", flushNow);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flushNow();

@@ -354,6 +354,32 @@ try {
   await page.waitForFunction((n) => document.querySelectorAll('[data-testid="landing-cv"]').length === n, before);
   step("a backup restores; invalid files are rejected; a CV can be deleted");
 
+  // --- Deleted means deleted ---
+  // The editor keeps the open CV in memory after the person leaves through the logo, and saves what it holds
+  // when the tab is hidden or closed. A CV deleted in between must not be written back.
+  const leaveTab = () =>
+    page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("pagehide"));
+    });
+  await id("landing-cv").first().click();
+  await page.waitForURL(/\/editor\//);
+  assert.equal(await page.getByRole("link", { name: "ThaFlow CV" }).count(), 1, "the editor should offer exactly one home link by name");
+  await id("home-link").click();
+  await page.waitForURL(`${origin}/`);
+  await id("landing-cv").first().waitFor();
+  const kept = await id("landing-cv").count();
+  await id("landing-cv-delete").first().click();
+  await id("landing-cv-delete-confirm").click();
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid="landing-cv"]').length === n, kept - 1);
+  await leaveTab();
+  await page.waitForTimeout(500);
+  await page.reload();
+  await id("landing-cv").first().waitFor();
+  assert.equal(await id("landing-cv").count(), kept - 1, "a deleted CV came back after the tab was hidden");
+  step("a CV deleted after leaving the editor stays deleted");
+
   // --- Offline ---
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload();
@@ -422,10 +448,20 @@ try {
   }
 
   // --- Clear all data ---
-  await page.goto(`${origin}/settings/`);
+  // Reached the way a person would, without reloading: editor, logo, settings. The CV still in the editor's
+  // memory must not survive the wipe when the tab is hidden afterwards.
+  await page.goto(`${origin}/`);
+  await id("landing-cv").first().click();
+  await page.waitForURL(/\/editor\//);
+  await id("home-link").click();
+  await page.waitForURL(`${origin}/`);
+  await page.locator('a[href="/settings/"]').first().click();
+  await page.waitForURL(/\/settings\//);
   await id("clear-data").click();
   await id("confirm-clear").click();
   await page.getByText("All local data was deleted.").waitFor();
+  await leaveTab();
+  await page.waitForTimeout(500);
   await page.goto(`${origin}/`);
   await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
   assert.equal(await id("landing-cv").count(), 0);
@@ -464,7 +500,16 @@ try {
   await mobile.getByTestId("view-edit").click();
   await mobile.getByLabel("Full name", { exact: true }).waitFor();
   await noOverflow("editor edit");
-  step("phone: questions (first-job-seeker path), templates and editor fit with no horizontal scroll");
+  // The name in the header follows the person's name, and a phone has its own undo (there is no Ctrl+Z).
+  await mobile.getByLabel("Full name", { exact: true }).fill("Mobile User Two");
+  await mobile.waitForFunction(() => document.querySelector('[data-testid="cv-title"]')?.value === "Mobile User Two");
+  assert.ok(await mobile.getByTestId("undo-phone").isVisible(), "no undo on a phone");
+  assert.equal(await mobile.getByTestId("undo").isVisible(), false, "the header's undo should give way on a phone");
+  await mobile.getByTestId("undo-phone").click();
+  await mobile.waitForFunction(() => document.querySelector('[data-testid="cv-title"]')?.value === "Mobile User");
+  assert.equal(await mobile.getByLabel("Full name", { exact: true }).inputValue(), "Mobile User");
+  await noOverflow("editor edit with undo");
+  step("phone: questions (first-job-seeker path), templates and editor fit; the header name follows the person; undo works");
 
   const unexpected = external.filter((u) => !u.startsWith(`http://127.0.0.1:${aiPort}`) && !u.startsWith(modelBase));
   assert.deepEqual(unexpected, [], "unexpected cross-origin requests");

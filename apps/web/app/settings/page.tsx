@@ -8,6 +8,7 @@ import { ArrowLeft } from "@/components/icons";
 import { Button, Card, Field, Select, TextInput, cx } from "@/components/ui";
 import { DEFAULT_AI_ENDPOINT, localProvider, useAI } from "@/lib/ai";
 import { getStore, useApp } from "@/lib/app-context";
+import { useEditor } from "@/lib/editor-store";
 
 function Group({ title, intro, children }: { title: string; intro?: string; children: ReactNode }) {
   return (
@@ -24,9 +25,11 @@ function Option(props: { name: string; checked: boolean; disabled?: boolean; onS
   return (
     <label
       className={cx(
-        "flex cursor-pointer gap-3 rounded-xl border px-4 py-3 transition-colors",
+        // One cursor class only: given both, "cursor-pointer" would win wherever it comes later in the stylesheet.
+        "flex gap-3 rounded-xl border px-4 py-3 transition-colors",
+        props.disabled ? "cursor-not-allowed" : "cursor-pointer",
         props.checked ? "border-ink bg-cream" : "border-line bg-paper hover:border-line-strong",
-        props.disabled && "cursor-not-allowed opacity-55 hover:border-line",
+        props.disabled && "opacity-55 hover:border-line",
       )}
     >
       <input
@@ -168,6 +171,7 @@ export default function SettingsPage() {
                   variant="danger"
                   data-testid="confirm-clear"
                   onClick={async () => {
+                    useEditor.getState().forget();
                     await getStore().clearAllData();
                     await reloadSettings();
                     setConfirmClear(false);

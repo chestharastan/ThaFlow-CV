@@ -8,6 +8,7 @@ import { AppHeader, LanguageToggle } from "@/components/app-header";
 import { ArrowRight } from "@/components/icons";
 import { Button, Card } from "@/components/ui";
 import { getStore, useApp } from "@/lib/app-context";
+import { useEditor } from "@/lib/editor-store";
 
 const MAX_BACKUP_BYTES = 20 * 1024 * 1024;
 
@@ -20,6 +21,9 @@ export default function LandingPage() {
 
   const reload = useCallback(async () => {
     try {
+      // Coming straight from the editor, the last edit may still be waiting to be saved: list what was typed.
+      const editor = useEditor.getState();
+      if (editor.saveState === "saving") await editor.flush();
       setCvs(await getStore().listCVs());
     } catch {
       setCvs([]);
@@ -84,7 +88,10 @@ export default function LandingPage() {
             </h2>
             <Card className="divide-y divide-line overflow-hidden">
               {cvs.map((cv) => {
-                const title = cv.personal.fullName.trim() || cv.metadata.title || t("landing.untitled");
+                // The CV's own name when the person gave it one (it follows their name until then), so two
+                // CVs for one person can be told apart; otherwise their name.
+                const own = cv.metadata.title.trim();
+                const title = (own && own !== "Untitled CV" ? own : cv.personal.fullName.trim()) || t("landing.untitled");
                 const meta = [cv.personal.headline?.trim(), t("landing.edited", { date: dateFormat.format(new Date(cv.metadata.updatedAt)) })].filter(Boolean).join(" · ");
                 return (
                   <div key={cv.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3" data-testid="landing-cv">
@@ -102,6 +109,7 @@ export default function LandingPage() {
                           variant="danger"
                           data-testid="landing-cv-delete-confirm"
                           onClick={async () => {
+                            useEditor.getState().forget(cv.id);
                             await getStore().deleteCV(cv.id);
                             setConfirming(null);
                             await reload();

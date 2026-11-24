@@ -20,6 +20,7 @@ import type { MessageKey } from "@thaflow/localization";
 import { useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
 import { draftSummary } from "@thaflow/rule-engine";
+import { setFullName } from "@thaflow/questionnaire";
 import { AIAssist } from "./ai-assist";
 import { DegreeSelect } from "./degree-select";
 import { Button, Card, Field, Select, TagInput, TextArea, TextInput } from "./ui";
@@ -374,7 +375,13 @@ function PersonalForm({ cv }: { cv: CVDocument }) {
         path="personal"
         section="personal"
         cvLanguage={cv.metadata.language}
-        onChange={(key, value) => update((d) => void ((d.personal as Item)[key] = value), `personal.${key}`)}
+        onChange={(key, value) =>
+          update((d) => {
+            // The CV's name (shown in the header) follows the person's name until it is given one of its own.
+            if (key === "fullName") setFullName(d, String(value ?? ""));
+            else (d.personal as Item)[key] = value;
+          }, `personal.${key}`)
+        }
       />
       <div>
         <p className="mb-1 text-xs font-medium text-ink-soft">{t("field.photo")}</p>

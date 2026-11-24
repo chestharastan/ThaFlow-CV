@@ -68,7 +68,8 @@ const controlSizes: Record<ControlSize, string> = {
   lg: "rounded-xl px-4 py-3 text-base",
 };
 /** Fixed heights for single-line controls so an input and a select on one row line up exactly. */
-const controlHeights: Record<ControlSize, string> = { sm: "h-8", md: "h-10", lg: "h-12" };
+// Line-height equal to the height: with a shorter line a one-line field cuts the bottom off Khmer subscripts.
+const controlHeights: Record<ControlSize, string> = { sm: "h-8 leading-8", md: "h-10 leading-10", lg: "h-12 leading-12" };
 const controlInvalid = "border-danger hover:border-danger focus:border-danger focus:ring-danger/15";
 
 /** Label + control + hint or error. Pass the generated id to the control. */
