@@ -10,7 +10,7 @@ import type { MessageKey } from "@thaflow/localization";
 import { createRuleEngine } from "@thaflow/rule-engine";
 import { CVPreview } from "@thaflow/template-engine";
 import { Download, Redo, Undo } from "./icons";
-import { LogoMark } from "./logo";
+import { LogoMark, Wordmark } from "./logo";
 import { useAI } from "@/lib/ai";
 import { getStore, useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
@@ -242,26 +242,37 @@ export function Workspace() {
     <WorkspaceContext.Provider value={workspace}>
       <div className="no-print flex h-dvh flex-col">
         <header className="flex h-14 shrink-0 items-center gap-1.5 border-b border-line px-3 sm:gap-2 sm:px-5">
-          <Link href="/" className="shrink-0 rounded-lg" aria-label={t("nav.home")}>
-            <LogoMark className="h-8 w-8" />
+          {/* The mark and the name beside it both lead home; whose CV this is sits under the name, and can be renamed.
+              Undo, redo and the template button give way on a phone (max-sm:hidden: a plain "hidden" would lose
+              to the buttons' own display), so the name keeps its room. */}
+          <Link href="/" className="shrink-0 rounded-lg" aria-label={t("nav.home")} title={t("nav.home")} data-testid="home-link">
+            <LogoMark className="h-8 w-8 drop-shadow-[0_0_0.5px_rgba(20,20,20,0.35)]" />
           </Link>
-          <input
-            value={cv.metadata.title}
-            onChange={(e) => update((d) => void (d.metadata.title = e.target.value), "title")}
-            aria-label={t("field.cvTitle")}
-            data-testid="cv-title"
-            className="h-9 min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 text-[15px] font-semibold tracking-[-0.01em] text-ink transition-colors hover:border-line focus:border-line-strong focus:bg-paper focus:outline-none"
-          />
+          <div className="flex min-w-0 flex-1 flex-col justify-center pl-1">
+            {/* Same destination as the mark: one link for the keyboard and screen readers, two things to click. */}
+            <Link href="/" tabIndex={-1} aria-hidden="true" className="self-start px-1 leading-none" data-testid="home-wordmark">
+              <Wordmark className="text-[13px] leading-4" />
+            </Link>
+            <input
+              value={cv.metadata.title}
+              onChange={(e) => update((d) => void (d.metadata.title = e.target.value), "title")}
+              aria-label={t("field.cvTitle")}
+              placeholder={t("field.cvTitle")}
+              data-testid="cv-title"
+              // A ring, not a border: a border would take two of the field's few pixels, and Khmer needs them all.
+              className="h-[22px] w-full min-w-0 max-w-80 truncate rounded bg-transparent px-1 text-[13px] text-muted ring-1 ring-transparent transition-[color,box-shadow,background-color] ring-inset placeholder:text-faint hover:text-ink hover:ring-line focus:bg-paper focus:text-ink focus:ring-line-strong focus:outline-none"
+            />
+          </div>
           <span className="hidden whitespace-nowrap text-xs text-muted md:inline" aria-live="polite" data-testid="save-state">
             {saveState === "saving" ? t("save.saving") : saveState === "error" ? t("save.error") : t("save.saved")}
           </span>
-          <Button variant="ghost" className="hidden px-2! sm:inline-flex" disabled={past.length === 0} onClick={undo} aria-label={t("action.undo")} title={t("action.undo")} data-testid="undo">
+          <Button variant="ghost" className="px-2! max-sm:hidden" disabled={past.length === 0} onClick={undo} aria-label={t("action.undo")} title={t("action.undo")} data-testid="undo">
             <Undo />
           </Button>
-          <Button variant="ghost" className="hidden px-2! sm:inline-flex" disabled={future.length === 0} onClick={redo} aria-label={t("action.redo")} title={t("action.redo")} data-testid="redo">
+          <Button variant="ghost" className="px-2! max-sm:hidden" disabled={future.length === 0} onClick={redo} aria-label={t("action.redo")} title={t("action.redo")} data-testid="redo">
             <Redo />
           </Button>
-          <button type="button" className={cx(templateLink, "hidden sm:inline-flex")} onClick={() => { setTab("template"); setMobileView("edit"); }} data-testid="open-templates">
+          <button type="button" className={cx(templateLink, "max-sm:hidden")} onClick={() => { setTab("template"); setMobileView("edit"); }} data-testid="open-templates">
             {t("design.template")}
           </button>
           <ExportMenu cv={cv} />

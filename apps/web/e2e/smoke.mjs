@@ -318,8 +318,21 @@ try {
   await page.emulateMedia({ media: null });
   step("a Khmer CV renders with Khmer labels, dates and a bundled Khmer font");
 
+  // --- The editor's header: the product's name with whose CV it is underneath; mark and name lead home ---
+  assert.equal((await id("home-wordmark").innerText()).trim(), "ThaFlow CV");
+  assert.equal(await id("cv-title").inputValue(), "សុខ ដារ៉ា");
+  const [markBox, wordBox, nameBox] = await Promise.all(["home-link", "home-wordmark", "cv-title"].map((t) => id(t).boundingBox()));
+  assert.ok(wordBox.x >= markBox.x + markBox.width, "the wordmark is not beside the mark");
+  assert.ok(nameBox.y >= wordBox.y + wordBox.height - 2 && Math.abs(nameBox.x - wordBox.x) <= 2, "the name is not under the wordmark");
+  await id("home-wordmark").click();
+  await page.waitForURL(`${origin}/`);
+  await id("landing-cv").first().click();
+  await page.waitForURL(/\/editor\//);
+  await id("home-link").click();
+  await page.waitForURL(`${origin}/`);
+  step("the editor shows ThaFlow CV with the person's name under it; the logo leads home");
+
   // --- Landing with saved CVs; Khmer interface ---
-  await page.goto(`${origin}/`);
   await id("landing-cv").first().waitFor();
   assert.ok((await id("landing-cv").count()) >= 4);
   await page.getByRole("button", { name: "ខ្មែរ" }).click();
@@ -443,6 +456,10 @@ try {
   await mobile.getByTestId("use-template-mobile").click();
   await mobile.getByTestId("preview").getByText("Mobile User").first().waitFor();
   await noOverflow("editor");
+  // On a phone the header still names the product and the person, with room left for both.
+  assert.equal((await mobile.getByTestId("home-wordmark").innerText()).trim(), "ThaFlow CV");
+  assert.equal(await mobile.getByTestId("cv-title").inputValue(), "Mobile User");
+  assert.ok((await mobile.getByTestId("cv-title").boundingBox()).width >= 100, "no room for the name on a phone");
   await mobile.screenshot({ path: join(shots, "mobile-editor.png") });
   await mobile.getByTestId("view-edit").click();
   await mobile.getByLabel("Full name", { exact: true }).waitFor();

@@ -20,15 +20,22 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
+/** The name in type: "ThaFlow", and the product after it in a lighter voice. */
+export function Wordmark({ className, product = true }: { className?: string; product?: boolean }) {
+  return (
+    <span className={cx("font-semibold tracking-[-0.01em] text-ink", className)} lang="en">
+      ThaFlow{product ? <span className="font-medium text-muted"> CV</span> : null}
+    </span>
+  );
+}
+
 /** Mark plus wordmark, as used in the header of every screen. */
 export function Logo({ className, product = true }: { className?: string; product?: boolean }) {
   return (
     <span className={cx("inline-flex select-none items-center gap-2.5 leading-none", className)} lang="en">
       {/* On the off-white page the cream stone needs a hairline to hold its edge. */}
       <LogoMark className="h-8 w-8 drop-shadow-[0_0_0.5px_rgba(20,20,20,0.35)]" />
-      <span className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
-        ThaFlow{product ? <span className="font-medium text-muted"> CV</span> : null}
-      </span>
+      <Wordmark className="text-[15px]" product={product} />
     </span>
   );
 }
