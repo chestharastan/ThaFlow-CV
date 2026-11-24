@@ -356,6 +356,62 @@ export const templateCss = /* css */ `
 .cv--fill-banner-dark .cv-header { --cv-name-color: var(--cv-fill-text); }
 .cv--header-banner .cv-body { padding: calc(var(--cv-pad-y) - 3mm) var(--cv-pad-x) var(--cv-pad-y); }
 
+/* ---------- Paged: one A4 sheet at a time on screen ----------
+ * <CVPreview page={n}> is a sheet of exactly 210 x 297mm showing the nth page. Inside it the CV is
+ * laid out as columns, each the size of a page's text area and one sheet apart, and the sheet shows
+ * the nth of them. The browser breaks the columns the way it breaks printed pages, so what is on
+ * each sheet here is what is on each sheet of the PDF. The margins are the columns' own, so every
+ * sheet has them; nothing relies on cloned padding.
+ *
+ * Heights follow getPageCss: where paper has page margins the text area is the page less the
+ * margins, and where it prints edge to edge it is the page less the CV's own padding. A printed
+ * page is a whole number of pixels tall (rounded up), so the same rounding is done here; without
+ * it something that fits the paper by half a pixel would start a new sheet on screen.
+ */
+.cv--paged { height: 297mm; min-height: 0; padding: 0; overflow: hidden; }
+.cv--paged > .cv-flow {
+  box-sizing: content-box;
+  position: relative;
+  height: calc(297mm - 2 * var(--cv-pad-y));
+  height: round(up, calc(297mm - 2 * var(--cv-pad-y)), 1px);
+  padding: var(--cv-pad-y) var(--cv-pad-x);
+  column-count: 1;
+  column-gap: calc(2 * var(--cv-pad-x));
+  column-fill: auto;
+  transform: translateX(calc(-100% * var(--cv-page, 0)));
+}
+.cv--paged .cv-section { break-inside: auto; }
+.cv--paged :is(.cv-header, .cv-entry, .cv-skill-group, .cv-contact) { break-inside: avoid; }
+.cv--paged .cv-heading { break-after: avoid; }
+.cv--paged :is(.cv-text, .cv-bullets li) { orphans: 2; widows: 2; }
+/* Edge stripes and fills print without page margins. The stripe is the sheet's border, so every sheet has it. */
+.cv--paged:is(.cv--edge-left, .cv--edge-top, .cv--bleed) > .cv-flow {
+  height: calc(297mm - var(--cv-sheet-trim, 0mm) - 2 * var(--cv-pad-y));
+  height: calc(round(up, 297mm, 1px) - var(--cv-sheet-trim, 0mm) - 2 * var(--cv-pad-y));
+}
+.cv--paged.cv--edge-top { --cv-sheet-trim: 3.2mm; }
+/* Filled designs reach the paper's edge: only the top and bottom margins belong to the page. */
+.cv--paged.cv--bleed > .cv-flow { padding-left: 0; padding-right: 0; column-gap: 0; }
+/* The strip is the sheet's, so it reaches the bottom edge of every sheet, however short the column. */
+.cv--paged:is(.cv--fill-sidebar-tint, .cv--fill-sidebar-dark)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--cv-sidebar-w);
+  background: var(--cv-fill-bg);
+}
+.cv--paged.cv--layout-sidebar-left::before { left: 0; }
+.cv--paged.cv--layout-sidebar-right::before { right: 0; }
+.cv--paged:is(.cv--fill-sidebar-tint, .cv--fill-sidebar-dark) .cv-body { min-height: 0; }
+.cv--paged:is(.cv--fill-sidebar-tint, .cv--fill-sidebar-dark) .cv-sidebar { padding-top: 0; padding-bottom: 0; background: transparent; }
+.cv--paged:is(.cv--fill-sidebar-tint, .cv--fill-sidebar-dark) .cv-main { padding-top: 0; padding-bottom: 0; }
+/* The band starts at the top edge of the first sheet; the text under it keeps its own, slightly smaller, top margin. */
+.cv--paged.cv--header-banner { --cv-sheet-trim: -3mm; }
+.cv--paged.cv--header-banner > .cv-flow { padding-top: calc(var(--cv-pad-y) - 3mm); }
+.cv--paged.cv--header-banner .cv-header { margin-top: calc(3mm - var(--cv-pad-y)); }
+.cv--paged.cv--header-banner .cv-body { padding-bottom: 0; }
+
 /* ---------- Khmer ---------- */
 .cv:lang(km) { font-size: calc(var(--cv-font-size) * var(--cv-km-scale)); }
 .cv:lang(km), .cv :lang(km) {
@@ -434,3 +490,19 @@ export const printCss = /* css */ `
   .page-break { break-before: page; }
 }
 `;
+
+/**
+ * How many A4 sheets the CV needs. Pass a sheet rendered with <CVPreview page={n}> (or anything
+ * around one): every sheet lays out the whole CV, so any of them knows the count.
+ *
+ * Returns 0 when the browser could not break the CV into sheets: something ran past the bottom
+ * of the sheet instead of moving to the next one, and would be cut off there. Show the CV whole
+ * (<CVPreview> without `page`) in that case rather than hide part of it.
+ */
+export function countPages(sheet: Element | null | undefined): number {
+  const flow = sheet?.matches(".cv-flow") ? sheet : sheet?.querySelector(".cv-flow");
+  if (!flow || flow.clientWidth === 0) return 1;
+  if (flow.scrollHeight > flow.clientHeight + 2) return 0;
+  // Columns are one sheet apart, so the width the columns take is the number of sheets.
+  return Math.max(1, Math.ceil((flow.scrollWidth - 1) / flow.clientWidth));
+}

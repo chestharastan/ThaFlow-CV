@@ -9,6 +9,7 @@ import {
   FONT_STACKS,
   contactLines,
   contactRows,
+  countPages,
   educationLines,
   experienceLines,
   getPageCss,
@@ -400,5 +401,56 @@ describe("print", () => {
 
   it("stays an A4 sheet on screen", () => {
     expect(templateCss).toMatch(/\.cv \{[^}]*width: 210mm;[^}]*min-height: 297mm;/);
+  });
+});
+
+describe("pages on screen", () => {
+  const sheet = (cv: CVDocument, template: CVTemplate, page: number) => renderToStaticMarkup(createElement(CVPreview, { cv, template, page }));
+
+  it("shows one sheet of exactly A4, whatever the CV holds", () => {
+    expect(templateCss).toMatch(/\.cv--paged \{[^}]*height: 297mm;[^}]*min-height: 0;[^}]*overflow: hidden;/);
+    const cv = longCV(fullEnglishCV());
+    for (const template of templates) {
+      const html = sheet(cv, template, 1);
+      expect(html, template.id).toMatch(/^<article class="[^"]*\bcv--paged\b[^"]*" style="[^"]*--cv-page:1"/);
+      // The whole CV is laid out inside the sheet, which shows the page asked for.
+      expect(html, template.id).toMatch(/data-template="[^"]+"><div class="cv-flow">/);
+      for (const text of ["Sophea Chan", "Tonle Digital", "Volunteer teacher"]) expect(html, `${template.id}: ${text}`).toContain(text);
+    }
+  });
+
+  it("leaves the printed copy as it was", () => {
+    const html = render(fullEnglishCV(), getTemplate("minimal"));
+    expect(html).not.toContain("cv--paged");
+    expect(html).not.toContain("cv-flow");
+    expect(html).not.toContain("--cv-page");
+  });
+
+  it("breaks sheets by the rules paper is broken by", () => {
+    expect(templateCss).toMatch(/\.cv--paged :is\(\.cv-header, \.cv-entry, \.cv-skill-group, \.cv-contact\) \{ break-inside: avoid; \}/);
+    expect(templateCss).toContain(".cv--paged .cv-heading { break-after: avoid; }");
+    // The text area of a sheet is the page less the margins the same template prints with.
+    expect(templateCss).toMatch(/\.cv--paged > \.cv-flow \{[^}]*height: calc\(297mm - 2 \* var\(--cv-pad-y\)\);/);
+    expect(templateCss).toMatch(/\.cv--paged > \.cv-flow \{[^}]*column-gap: calc\(2 \* var\(--cv-pad-x\)\);/);
+  });
+
+  it("gives every sheet of a filled design its strip", () => {
+    expect(templateCss).toMatch(/\.cv--paged:is\(\.cv--fill-sidebar-tint, \.cv--fill-sidebar-dark\)::before \{[^}]*width: var\(--cv-sidebar-w\);[^}]*background: var\(--cv-fill-bg\);/);
+    expect(templateCss).toContain(".cv--paged.cv--layout-sidebar-left::before { left: 0; }");
+    expect(templateCss).toContain(".cv--paged.cv--layout-sidebar-right::before { right: 0; }");
+  });
+
+  it("counts sheets from how far the columns run", () => {
+    const flow = (clientWidth: number, scrollWidth: number, scrollHeight = 1123) =>
+      ({ matches: () => true, clientWidth, clientHeight: 1123, scrollWidth, scrollHeight }) as unknown as Element;
+    expect(countPages(null)).toBe(1);
+    expect(countPages(flow(794, 794))).toBe(1);
+    // Columns of text with page margins end one margin short of a whole sheet.
+    expect(countPages(flow(794, 794 + 733))).toBe(2);
+    expect(countPages(flow(794, 794 * 3))).toBe(3);
+    // Not laid out yet (hidden): nothing to count.
+    expect(countPages(flow(0, 0))).toBe(1);
+    // Something that could not move to the next sheet runs past the bottom: say so, so it is not cut off.
+    expect(countPages(flow(794, 794, 1500))).toBe(0);
   });
 });

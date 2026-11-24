@@ -7,6 +7,7 @@ import type { MessageKey } from "@thaflow/localization";
 import { answerOpening, type OpeningQuestionId } from "@thaflow/questionnaire";
 import { useApp } from "@/lib/app-context";
 import { ocrOptions } from "@/lib/ocr";
+import { FoundDetails } from "./found";
 import { Choice, Choices, ErrorLine, Heading, Primary, QuestionForm } from "./frame";
 
 /** Why the opening could not go on. Import codes come from the import engine; the rest are ours. */
@@ -146,8 +147,12 @@ export function SourceQuestion({
               {t(warnings.includes("read-from-image") ? "create.found.pictureWarning" : "create.found.warning")}
             </p>
           )}
+          {/* The counts say how much was read; this says what, so a wrong reading is seen before it is used. */}
+          <FoundDetails data={data} />
         </div>
-        <Primary autoFocus>{t("create.continue")}</Primary>
+        <Primary autoFocus sticky>
+          {t("create.continue")}
+        </Primary>
       </QuestionForm>
     );
   }

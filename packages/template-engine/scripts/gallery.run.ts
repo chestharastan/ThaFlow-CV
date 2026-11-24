@@ -10,6 +10,8 @@
  *   sheets/<variant>-<n>.png      contact sheets, six templates each
  *   pdf/<id>-<variant>.pdf        printed through the browser, like "Save as PDF"
  *   pdf/<id>-<variant>.png        every sheet of that PDF side by side (needs pdftoppm)
+ *   pdf/<id>-<variant>-screen.png the same CV as the A4 sheets the app shows on screen; the run fails
+ *                                 if the screen needs a different number of sheets than the PDF has pages
  *
  * Environment:
  *   GALLERY_ONLY=minimal,modern   limit to some template ids
@@ -24,7 +26,7 @@
  * Playwright must be resolvable with require("playwright").
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -32,7 +34,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { test } from "vitest";
 import { createEmptyCV, type CVDocument } from "@thaflow/cv-core";
-import { BUNDLED_FONTS, CVPreview, printCss, templateCss, templates, type CVTemplate } from "../src";
+import { BUNDLED_FONTS, CVPreview, countPages, printCss, templateCss, templates, type CVTemplate } from "../src";
 import { fullEnglishCV, fullKhmerCV, longCV, mixedCV, stressCV } from "../test/fixtures";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -158,6 +160,7 @@ test("render the template gallery", async () => {
     const defaultPdf = ["minimal", "modern", "margin", "balance", "timeline", "angkor", "kulen", "bokor", "creative", "tonle", "bayon"];
     const pdfIds = pdfSetting === "none" ? [] : pdfSetting === "all" ? templates.map((t) => t.id) : pdfSetting ? list("GALLERY_PDF") : defaultPdf;
     const printer = await browser.newPage();
+    const pageMismatches: string[] = [];
     for (const id of pdfIds) {
       const template = templates.find((t) => t.id === id);
       if (!template || !chosen.includes(template)) continue;
@@ -170,6 +173,26 @@ test("render the template gallery", async () => {
       await printer.evaluate(() => document.fonts.ready);
       const pdf = join(out, "pdf", `${id}-${variant}.pdf`);
       await printer.pdf({ path: pdf, preferCSSPageSize: true, printBackground: true });
+
+      // The same CV as the sheets shown on screen: what is on each must be what is on each page of the PDF.
+      const printedPages = (readFileSync(pdf, "latin1").match(/\/Type\s*\/Page(?!s)/g) ?? []).length;
+      const screenFile = join(out, "html", `screen-${id}.html`);
+      const firstSheet = renderToStaticMarkup(createElement(CVPreview, { cv, template, page: 0 }));
+      writeFileSync(screenFile, page(`<div id="sheets" style="display:flex;gap:16px;padding:16px;width:max-content">${firstSheet}</div>`, ".cv { flex: none; }"));
+      await printer.goto(pathToFileURL(screenFile).href);
+      await printer.evaluate(() => document.fonts.ready);
+      const sheets: number = await printer.evaluate(`(${countPages.toString()})(document.querySelector(".cv"))`);
+      await printer.evaluate((count: number) => {
+        const first = document.querySelector<HTMLElement>(".cv")!;
+        for (let n = 1; n < count; n++) {
+          const next = first.cloneNode(true) as HTMLElement;
+          next.style.setProperty("--cv-page", String(n));
+          first.parentElement!.appendChild(next);
+        }
+      }, sheets);
+      await printer.locator("#sheets").screenshot({ path: pdf.replace(/\.pdf$/, "-screen.png"), scale: "css" });
+      if (sheets !== printedPages) pageMismatches.push(`${id} (${variant}): ${sheets} on screen, ${printedPages} in the PDF`);
+
       try {
         // All sheets of the PDF side by side in one image, to check page breaks and margins at a glance.
         const stem = pdf.replace(/\.pdf$/, "");
@@ -190,6 +213,7 @@ test("render the template gallery", async () => {
       }
     }
     await printer.close();
+    if (pageMismatches.length > 0) throw new Error(`Sheets on screen differ from the printed pages:\n${pageMismatches.join("\n")}`);
 
     // Word: write the .docx for every template and, when LibreOffice is available, contact sheets of their first pages.
     if (env("GALLERY_DOCX") === "1") {

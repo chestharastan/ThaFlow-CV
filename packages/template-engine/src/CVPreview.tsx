@@ -27,6 +27,13 @@ export interface CVPreviewProps {
    * copy that is printed, so "Save as PDF" gets the right paper size and margins.
    */
   pageStyle?: boolean;
+  /**
+   * Show one A4 sheet instead of the whole CV: 0 for the first page, 1 for the
+   * second, and so on (see countPages for how many there are). The sheet is
+   * exactly 210 x 297mm whatever the CV holds. Leave it out for the one copy
+   * that is printed: paper is cut into pages by the browser.
+   */
+  page?: number;
 }
 
 interface Ctx {
@@ -393,7 +400,7 @@ const mm = (value: number) => `${value}mm`;
  * Every template goes through this one renderer; a template only chooses
  * modifier classes and CSS variables.
  */
-export function CVPreview({ cv, template: templateProp, className, pageStyle }: CVPreviewProps) {
+export function CVPreview({ cv, template: templateProp, className, pageStyle, page }: CVPreviewProps) {
   const template = templateProp ?? getTemplate(cv.appearance.templateId);
   const look = resolveAppearance(template, cv.appearance);
   const lang = cv.metadata.language;
@@ -435,6 +442,7 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
     "--cv-leading": density.leading,
     "--cv-leading-km": density.leadingKm,
     "--cv-sidebar-w": mm(layout.sidebarWidth),
+    ...(page === undefined ? {} : { "--cv-page": Math.max(0, Math.floor(page)) }),
   } as CSSProperties;
 
   const classes = [
@@ -461,6 +469,7 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
     `cv--contact-${design.contactSeparator}`,
     design.subtitleItalic ? "cv--sub-italic" : "",
     ...design.accent.map((target) => `cv--accent-${target}`),
+    page === undefined ? "" : "cv--paged",
     className ?? "",
   ]
     .filter(Boolean)
@@ -531,7 +540,7 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
     <>
       {pageStyle ? <style>{getPageCss(template)}</style> : null}
       <article className={classes} style={style} lang={lang} data-template={template.id}>
-        {content}
+        {page === undefined ? content : <div className="cv-flow">{content}</div>}
       </article>
     </>
   );

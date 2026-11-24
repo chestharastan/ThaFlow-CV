@@ -122,16 +122,25 @@ export function Primary({
   children,
   disabled,
   autoFocus,
+  sticky,
   testId = "create-next",
 }: {
   children: ReactNode;
   disabled?: boolean;
   /** For screens with no box to type in, so Enter still moves on. */
   autoFocus?: boolean;
+  /** For screens that can be longer than the window: the button stays at the bottom while the rest scrolls under it. */
+  sticky?: boolean;
   testId?: string;
 }) {
   return (
-    <div className="mt-8">
+    <div
+      className={cx(
+        "mt-8",
+        sticky &&
+          "sticky bottom-0 bg-canvas pb-[max(1rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-8 before:bg-linear-to-t before:from-canvas before:to-transparent",
+      )}
+    >
       <Button
         type="submit"
         variant="primary"

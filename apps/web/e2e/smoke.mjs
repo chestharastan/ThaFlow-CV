@@ -148,7 +148,7 @@ try {
   await shot("templates");
   await id("use-template").click();
   await page.waitForURL(/\/editor\//);
-  await preview.locator('[data-template="timeline"]').waitFor();
+  await preview.locator('[data-template="timeline"]').first().waitFor();
   await preview.getByText("Sok Dara").first().waitFor();
   await preview.getByText(/Jan 2022 – Jun 2024/i).first().waitFor();
   await shot("editor");
@@ -165,12 +165,12 @@ try {
   // Change template without leaving the editor, then through the full chooser.
   await id("open-templates").click();
   await id("template-modern").click();
-  await preview.locator('[data-template="modern"]').waitFor();
+  await preview.locator('[data-template="modern"]').first().waitFor();
   assert.match(page.url(), /\/editor\//);
   await id("change-template").click();
   await id("template-ats").click();
   await id("use-template").click();
-  await preview.locator('[data-template="ats"]').waitFor();
+  await preview.locator('[data-template="ats"]').first().waitFor();
   for (const expected of ["Accountant", "Acme Trading", "Royal University of Phnom Penh", "QuickBooks", "Bachelor's degree"]) {
     assert.ok((await preview.innerText()).includes(expected), `missing after template change: ${expected}`);
   }
@@ -209,6 +209,45 @@ try {
   await page.emulateMedia({ media: null });
   step("Word and backup download; print shows only the CV and makes a PDF");
 
+  // --- A4: the CV is shown on the sheets it prints on, and a longer CV gets another sheet, never a longer one ---
+  const sheets = preview.getByTestId("cv-sheet");
+  const sheetsAreA4 = async () => {
+    // Printing hides the screen for a moment; wait until the sheets are laid out again.
+    await page.waitForFunction(() => document.querySelector('[data-testid="preview"] [data-testid="cv-sheet"]')?.getBoundingClientRect().width > 0);
+    const shapes = await sheets.evaluateAll((all) => all.map((sheet) => sheet.getBoundingClientRect()).map((box) => box.height / box.width));
+    for (const shape of shapes) assert.ok(Math.abs(shape - 297 / 210) < 0.002, `a sheet is not A4: ${shape}`);
+    return shapes.length;
+  };
+  const pdfPages = async () => ((await page.pdf({ preferCSSPageSize: true, printBackground: true })).toString("latin1").match(/\/Type\s*\/Page(?!s)/g) ?? []).length;
+  assert.equal(await pdfPages(), 1);
+  assert.equal(await sheetsAreA4(), 1);
+  await id("summary-box").fill(Array.from({ length: 60 }, (_, n) => `Line ${n + 1} of a summary that is far too long for one page.`).join("\n"));
+  await preview.getByText("Line 60 of a summary").first().waitFor();
+  const printed = await pdfPages();
+  assert.ok(printed > 1, "the long summary still fits one page");
+  await page.waitForFunction((count) => document.querySelectorAll('[data-testid="preview"] [data-testid="cv-sheet"]').length === count, printed);
+  const longSheets = await sheetsAreA4();
+  assert.equal(longSheets, printed, "the screen and the PDF disagree about the number of pages");
+  // The last sheet shows what the first has no room for, and no line is on two sheets.
+  const linesOn = (sheet) =>
+    sheet.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return [...el.querySelectorAll(".cv-text")]
+        .filter((line) => /^Line \d+ of a summary/.test(line.textContent ?? ""))
+        .filter((line) => {
+          const at = line.getBoundingClientRect();
+          return at.left >= box.left && at.right <= box.right && at.top >= box.top && at.bottom <= box.bottom;
+        })
+        .map((line) => Number(/\d+/.exec(line.textContent)[0]));
+    });
+  const shown = [];
+  for (let n = 0; n < longSheets; n++) shown.push(...(await linesOn(sheets.nth(n))));
+  assert.deepEqual(shown, Array.from({ length: 60 }, (_, n) => n + 1), "the sheets do not show every line once, in order");
+  await shot("editor-two-sheets");
+  await id("summary-box").fill("i do accounting");
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid="preview"] [data-testid="cv-sheet"]').length === 1);
+  step("the CV is shown on A4 sheets: a second sheet when the first is full, the same pages as the PDF");
+
   // --- AI off: no AI controls, nothing left the origin ---
   await id("section-experiences").click();
   assert.equal(await page.getByText("Improve wording").count(), 0);
@@ -240,6 +279,27 @@ try {
   await id("create-found").waitFor({ timeout: 30000 });
   assert.match(await id("create-found-name").textContent(), /Dara Sok/, "two columns: name not recognised");
   assert.match(await id("create-found-counts").textContent(), /2 jobs · 1 school · 2 projects · 21 skills · 2 languages/, "two columns: sections mixed up");
+  // Not only how much was found but what: every part is there to read before it is used.
+  const found = await id("create-found-details").innerText();
+  for (const expected of [
+    "dara.sok@example.com",
+    "+855 12 345 678",
+    "Final-year engineering student",
+    "Teaching Assistant",
+    "Royal University of Phnom Penh · Apr 2025 – Apr 2026",
+    "Supported the Data Science and Programming course for 120 students",
+    "Royal University of Phnom Penh (RUPP)",
+    "Bachelor of Engineering, Data Science and Engineering · 2021 – 2025",
+    "Khmer OCR Thesis & ThaOCR (Ongoing)",
+    "Machine Learning",
+    "Hugging Face",
+    "Khmer · Native",
+  ]) {
+    assert.ok(found.includes(expected), `two columns: not shown in what was found: ${expected}`);
+  }
+  // The list is longer than the window, and Continue is still in reach without scrolling.
+  const reach = await id("create-next").evaluate((button) => ({ bottom: button.getBoundingClientRect().bottom, window: innerHeight, page: document.documentElement.scrollHeight, scrolled: scrollY }));
+  assert.ok(reach.page > reach.window && reach.scrolled === 0 && reach.bottom <= reach.window, `Continue is out of reach: ${JSON.stringify(reach)}`);
   await next();
   await id(`create-language-en`).click();
   await next();
