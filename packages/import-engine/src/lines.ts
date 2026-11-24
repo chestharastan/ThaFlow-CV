@@ -9,6 +9,9 @@ export interface Line {
   emph?: boolean;
   /** Whether the line ends in that heavier face, when it differs from how it starts ("Tools: Git, Linux"). */
   tail?: boolean;
+  /** The face the line starts in and the one it ends in, when known (PDF): a bold line and an italic one differ. */
+  face?: string;
+  endFace?: string;
   /** Marked as a heading or title by the document itself (Word styles). */
   heading?: boolean;
   /** A list item. */

@@ -72,6 +72,20 @@ async function answerQuestions({ khmer = false } = {}) {
   await id("create-phone").fill("+855 12 345 678");
   await id("create-location").fill(khmer ? "ភ្នំពេញ កម្ពុជា" : "Phnom Penh, Cambodia");
   await next();
+  // Personal details are optional: the Khmer run skips them, the English one fills them in.
+  await id("create-gender").waitFor();
+  assert.equal((await id("create-next").textContent()).trim(), "Skip");
+  if (!khmer) {
+    await id("create-gender").selectOption("female");
+    await id("create-marital").selectOption("single");
+    await id("create-birth-day").selectOption("19");
+    await id("create-birth-month").selectOption("02");
+    await id("create-birth-year").selectOption("1999");
+    await id("create-birthplace").fill("Kandal Province");
+    await id("create-nationality").fill("Cambodian");
+    assert.equal((await id("create-next").textContent()).trim(), "Next");
+  }
+  await next();
   await id("create-worked-yes").click();
   await id("create-work-position").fill(khmer ? "គណនេយ្យករ" : "Accountant");
   await id("create-work-company").fill(khmer ? "ក្រុមហ៊ុន អេស៊ីអឹម" : "Acme Trading");
@@ -138,10 +152,10 @@ try {
   step("answers survive Back and a reload");
 
   // --- Choose a template ---
-  assert.equal(await id("template-grid").locator('[data-testid^="template-"]').count(), 30);
+  assert.equal(await id("template-grid").locator('[data-testid^="template-"]').count(), 40);
   await id("filter-classic").click();
   const classic = await id("template-grid").locator('[data-testid^="template-"]').count();
-  assert.ok(classic >= 5 && classic < 30, `classic filter shows ${classic}`);
+  assert.ok(classic >= 5 && classic < 40, `classic filter shows ${classic}`);
   await id("filter-all").click();
   await id("template-timeline").click();
   assert.equal((await id("selected-template").textContent()).trim(), "Timeline");
@@ -152,7 +166,7 @@ try {
   await preview.getByText("Sok Dara").first().waitFor();
   await preview.getByText(/Jan 2022 – Jun 2024/i).first().waitFor();
   await shot("editor");
-  step("30 templates, filter, choose one, land on the finished CV");
+  step("40 templates, filter, choose one, land on the finished CV");
   const cvUrl = page.url();
 
   // --- Persistence, undo, editing, template change keeps content ---
@@ -167,11 +181,32 @@ try {
   await id("template-modern").click();
   await preview.locator('[data-template="modern"]').waitFor();
   assert.match(page.url(), /\/editor\//);
+  // A standard sheet: the page is titled, and every detail is a "label : value" row, personal details included.
+  await id("template-sambor").click();
+  await preview.locator('[data-template="sambor"]').waitFor();
+  const sheet = await preview.innerText();
+  for (const expected of ["CURRICULUM VITAE", "SOK DARA", "Position", "Accountant", "Personal details".toUpperCase(), "Gender", "Female", "19 February 1999", "Kandal Province", "Cambodian", "Single"]) {
+    assert.ok(sheet.includes(expected), `standard sheet is missing: ${expected}`);
+  }
+  // Kept for later: this layout has to come back in through "I already have a CV" as well.
+  await page.emulateMedia({ media: "print" });
+  const sheetPdfPath = join(shots, "Sok-Dara-sheet.pdf");
+  await page.pdf({ preferCSSPageSize: true, printBackground: true, path: sheetPdfPath });
+  await page.emulateMedia({ media: null });
+  await shot("editor-sheet");
+  // The editor keeps the personal details with the rest of "Personal".
+  await id("tab-content").click();
+  await id("section-personal").click();
+  assert.equal(await id("personal-gender").inputValue(), "female");
+  assert.equal(await id("personal-birth-year").inputValue(), "1999");
+  await id("personal-height").fill("1.60 m");
+  await preview.getByText("1.60 m").first().waitFor();
+  await id("open-templates").click();
   await id("change-template").click();
   await id("template-ats").click();
   await id("use-template").click();
   await preview.locator('[data-template="ats"]').waitFor();
-  for (const expected of ["Accountant", "Acme Trading", "Royal University of Phnom Penh", "QuickBooks", "Bachelor's degree"]) {
+  for (const expected of ["Accountant", "Acme Trading", "Royal University of Phnom Penh", "QuickBooks", "Bachelor's degree", "Personal details", "19 February 1999", "1.60 m"]) {
     assert.ok((await preview.innerText()).includes(expected), `missing after template change: ${expected}`);
   }
   await id("tab-check").click();
@@ -216,19 +251,27 @@ try {
   step("with AI off there are no AI controls and zero cross-origin requests");
 
   // --- Existing CV: read a Word file and a PDF on the device ---
-  for (const [kind, file] of [["Word", docxPath], ["PDF", pdfPath]]) {
+  // The third file is the standard sheet printed above: its name is set in capitals, and its details are rows.
+  for (const [kind, file] of [["Word", docxPath], ["PDF", pdfPath], ["PDF of a standard sheet", sheetPdfPath]]) {
     await page.goto(`${origin}/create/`);
     await id("create-start-yes").click();
     await id("create-source-private").waitFor(); // the one line that says the file stays on the device
     await id("create-file-input").setInputFiles(file);
     await id("create-found").waitFor({ timeout: 30000 });
-    assert.match(await id("create-found-name").textContent(), /Sok Dara/, `${kind}: name not recognised`);
+    assert.match(await id("create-found-name").textContent(), /Sok Dara/i, `${kind}: name not recognised`);
     await next();
     await id(`create-language-en`).click();
-    assert.equal(await id("create-name").inputValue(), "Sok Dara", `${kind}: name not pre-filled`);
+    assert.equal((await id("create-name").inputValue()).toLowerCase(), "sok dara", `${kind}: name not pre-filled`);
     await next();
+    assert.equal(await id("create-title").inputValue(), "Accountant", `${kind}: job title not pre-filled`);
     await next();
     assert.equal(await id("create-email").inputValue(), "dara@example.com", `${kind}: email not pre-filled`);
+    assert.equal(await id("create-phone").inputValue(), "+855 12 345 678", `${kind}: phone not pre-filled`);
+    assert.equal(await id("create-location").inputValue(), "Phnom Penh, Cambodia", `${kind}: address not pre-filled`);
+    await next();
+    // Personal details printed in the file are not carried over: the question comes empty.
+    assert.equal(await id("create-gender").inputValue(), "", `${kind}: personal details were carried over`);
+    assert.equal(await id("create-nationality").inputValue(), "", `${kind}: personal details were carried over`);
     await next();
     await id("create-entry-list").waitFor(); // imported jobs go straight to the list
     assert.match(await id("create-entry-list").innerText(), /Acme Trading/, `${kind}: job not recognised`);
@@ -247,6 +290,7 @@ try {
   await next();
   assert.equal(await id("create-location").inputValue(), "Sangkat Tek Thla, Khan Sen Sok, Phnom Penh", "two columns: address not recognised");
   await next();
+  await next(); // personal details
   assert.match(await id("create-entry-list").innerText(), /Teaching Assistant[\s\S]*Student Ambassador/, "two columns: jobs not recognised");
 
   await page.goto(`${origin}/create/`);
@@ -396,6 +440,7 @@ try {
       assert.equal(await id("create-phone").inputValue(), "+855 12 345 678", `${kind}: phone not read`);
       assert.equal(await id("create-location").inputValue(), "Sangkat Tek Thla, Khan Sen Sok, Phnom Penh", `${kind}: address not read`);
       await next();
+      await next(); // personal details
       assert.match(await id("create-entry-list").innerText(), /Teaching Assistant[\s\S]*Student Ambassador/, `${kind}: jobs not read`);
     }
     await importPicture(khmerPdfPath);
@@ -432,6 +477,10 @@ try {
   await mobile.screenshot({ path: join(shots, "mobile-question.png") });
   await mobile.getByTestId("create-next").click();
   for (let i = 0; i < 2; i++) await mobile.getByTestId("create-next").click(); // title, contact
+  await mobile.getByTestId("create-gender").waitFor(); // personal details: the longest screen
+  await noOverflow("personal details");
+  await mobile.screenshot({ path: join(shots, "mobile-details.png") });
+  await mobile.getByTestId("create-next").click();
   await mobile.getByTestId("create-worked-no").click(); // "Not yet" → projects are asked
   await mobile.getByTestId("create-education-institution").waitFor();
   await mobile.getByTestId("create-next").click();

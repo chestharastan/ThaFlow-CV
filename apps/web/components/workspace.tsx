@@ -25,7 +25,8 @@ import { WorkspaceContext, type AssistRequest, type WorkspaceContextValue } from
 const ruleEngine = createRuleEngine();
 type Tab = "content" | "template" | "design" | "check" | "history";
 type StepId = "personal" | SectionKey;
-const ALL_SECTIONS: StepId[] = ["personal", ...SECTION_KEYS];
+// Personal details are edited with the rest of "Personal"; as a printed section they have no form of their own.
+const ALL_SECTIONS: StepId[] = ["personal", ...SECTION_KEYS.filter((key) => key !== "personalDetails")];
 
 function ExportMenu({ cv }: { cv: CVDocument }) {
   const { t } = useApp();

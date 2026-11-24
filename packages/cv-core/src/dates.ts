@@ -30,6 +30,26 @@ export function formatPartialDate(value: string | undefined, language: CVLanguag
   return `${MONTHS[language][Number(m[2]) - 1]} ${m[1]}`;
 }
 
+const FULL_DATE = /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+export function isFullDate(value: string | undefined): boolean {
+  return Boolean(value && FULL_DATE.test(value));
+}
+
+/**
+ * A whole date such as a date of birth: "2005-02-19" prints as "19 February 2005"
+ * ("19 កុម្ភៈ 2005" in Khmer). A partial date prints as partial dates do, and
+ * anything else is printed exactly as it was written.
+ */
+export function formatFullDate(value: string | undefined, language: CVLanguage): string {
+  if (!value) return "";
+  const m = FULL_DATE.exec(value);
+  if (!m) return formatPartialDate(value, language);
+  const month = language === "km" ? MONTHS.km[Number(m[2]) - 1] : LONG_MONTHS[Number(m[2]) - 1];
+  return `${Number(m[3])} ${month} ${m[1]}`;
+}
+
 export function formatDateRange(
   start: string | undefined,
   end: string | undefined,

@@ -32,10 +32,10 @@ const fontKeysOf = (t: CVTemplate): FontKey[] => [t.typography.nameFont, t.typog
 const count = (predicate: (t: CVTemplate) => boolean) => templates.filter(predicate).length;
 
 describe("template registry", () => {
-  it("has exactly 30 templates with unique ids and names", () => {
-    expect(templates).toHaveLength(30);
-    expect(new Set(templates.map((t) => t.id)).size).toBe(30);
-    expect(new Set(templates.map((t) => t.name)).size).toBe(30);
+  it("has exactly 40 templates with unique ids and names", () => {
+    expect(templates).toHaveLength(40);
+    expect(new Set(templates.map((t) => t.id)).size).toBe(40);
+    expect(new Set(templates.map((t) => t.name)).size).toBe(40);
   });
 
   it("gives every template a one-word name and a short English description", () => {
@@ -70,7 +70,7 @@ describe("template registry", () => {
   });
 
   it("offers both: plain black-on-white designs and designs that carry colour", () => {
-    // People who want it simple still have it; the gallery as a whole is not thirty near-identical pages.
+    // People who want it simple still have it; the gallery as a whole is not forty near-identical pages.
     expect(count((t) => !isColourful(t) && ["#111111", "#000000"].includes(t.colors.primary))).toBeGreaterThanOrEqual(6);
     expect(count((t) => isColourful(t))).toBeGreaterThanOrEqual(10);
     expect(count((t) => t.colors.primary !== "#111111" && t.colors.primary !== "#000000")).toBeGreaterThanOrEqual(18);
@@ -120,10 +120,32 @@ describe("template registry", () => {
     }
   });
 
-  it("offers a photo slot on some templates and not on most", () => {
-    const withPhoto = count((t) => t.layout.photo !== "none");
-    expect(withPhoto).toBeGreaterThanOrEqual(5);
-    expect(withPhoto).toBeLessThan(15);
+  it("offers a photo slot on many templates, and plenty without one", () => {
+    // A CV in Cambodia usually carries a photo; one sent abroad or through a screening system usually does not.
+    expect(count((t) => t.layout.photo !== "none")).toBeGreaterThanOrEqual(15);
+    expect(count((t) => t.layout.photo === "none")).toBeGreaterThanOrEqual(15);
+    // A large photo belongs to a design built around it.
+    for (const t of templates.filter((t) => t.layout.photoSize === "large")) expect(t.layout.photo, t.id).not.toBe("none");
+    for (const t of templates.filter((t) => t.layout.photo === "cover")) expect(t.style.fill, t.id).toBe("sidebar-dark");
+  });
+
+  it("has the standard Cambodian sheets: label and value rows, a photo, a titled page", () => {
+    const sheets = templates.filter((t) => t.style.entry === "form");
+    expect(sheets.map((t) => t.id).sort()).toEqual(["chaktomuk", "sambor", "vihear"]);
+    for (const t of sheets) {
+      expect(t.layout.kind, t.id).toBe("single");
+      expect(["form", "lines", "sheet"], t.id).toContain(t.style.header);
+      expect(t.layout.masthead, t.id).not.toBe("none");
+      expect(t.layout.photo, t.id).toBe("portrait");
+      expect(t.style.skills, t.id).toBe("rows");
+      // Dates stand where a label would, so the column has to hold a date range in either language.
+      expect(t.typography.dateColumn, t.id).toBeGreaterThanOrEqual(12);
+    }
+    // The national motto heads the Khmer-first sheet only.
+    expect(templates.filter((t) => t.layout.masthead === "national").map((t) => t.id)).toEqual(["vihear"]);
+    expect(getTemplate("vihear").traits.khmerFirst).toBe(true);
+    // A title above the page belongs to these sheets and to nothing else.
+    for (const t of templates) expect(t.layout.masthead !== "none", t.id).toBe(t.style.entry === "form");
   });
 
   it("gives every default colour enough weight to carry white text", () => {
@@ -157,11 +179,17 @@ describe("template designs", () => {
   it("uses every major axis value somewhere, so the set is genuinely varied", () => {
     const used = <T>(pick: (t: CVTemplate) => T) => new Set(templates.map(pick));
     expect(used((t) => t.layout.kind)).toEqual(new Set(["single", "sidebar-left", "sidebar-right", "split", "label"]));
-    expect(used((t) => t.style.header)).toEqual(new Set(["left", "center", "split", "rule", "boxed", "monogram", "banner"]));
-    expect(used((t) => t.style.entry)).toEqual(new Set(["date-right", "date-left", "date-below", "timeline"]));
-    expect(used((t) => t.style.skills)).toEqual(new Set(["list", "rows", "pills", "columns"]));
+    expect(used((t) => t.style.header)).toEqual(
+      new Set(["left", "center", "split", "rule", "boxed", "monogram", "banner", "form", "lines", "sheet", "profile", "card"]),
+    );
+    expect(used((t) => t.style.entry)).toEqual(new Set(["date-right", "date-left", "date-below", "timeline", "form", "date-lead"]));
+    expect(used((t) => t.style.skills)).toEqual(new Set(["list", "rows", "pills", "columns", "bullets"]));
     expect(used((t) => t.style.density)).toEqual(new Set(["compact", "regular", "airy"]));
-    expect(used((t) => t.style.heading).size).toBeGreaterThanOrEqual(10);
+    expect(used((t) => t.style.edge)).toEqual(new Set(["none", "left", "top", "tab", "dots"]));
+    expect(used((t) => t.style.contact)).toEqual(new Set(["plain", "icons", "labels"]));
+    expect(used((t) => t.layout.photo)).toEqual(new Set(["none", "circle", "rounded", "portrait", "cover"]));
+    expect(used((t) => t.layout.masthead)).toEqual(new Set(["none", "title", "national"]));
+    expect(used((t) => t.style.heading).size).toBeGreaterThanOrEqual(14);
     expect(used((t) => t.typography.bodyFont).size).toBeGreaterThanOrEqual(10);
   });
 
@@ -171,11 +199,20 @@ describe("template designs", () => {
       expect(header === "banner", t.id).toBe(fill === "banner-dark" || fill === "banner-tint");
       if (fill === "sidebar-dark" || fill === "sidebar-tint") {
         expect(t.layout.sidebar, t.id).toBe(true);
-        // A filled sidebar runs the full height of the page, so the name cannot span above it.
-        expect(t.layout.headerPlacement, t.id).not.toBe("full");
+        // A filled sidebar runs the full height of the page, so the name cannot span above it,
+        // unless it sits on a card of its own laid over the fill.
+        expect(t.layout.headerPlacement === "full", t.id).toBe(header === "card");
       }
+      // These headers place the photo over the side column, so they need one, on the left.
+      if (header === "profile" || header === "card") {
+        expect(t.layout.kind, t.id).toBe("sidebar-left");
+        expect(t.layout.headerPlacement, t.id).toBe("full");
+      }
+      // A foot band or a column of dots is measured against the side column.
+      if (t.style.edge === "tab" || t.style.edge === "dots") expect(t.layout.kind, t.id).toBe("sidebar-left");
       expect(t.layout.sidebarWidth, t.id).toBeGreaterThanOrEqual(46);
-      expect(t.layout.sidebarWidth, t.id).toBeLessThanOrEqual(70);
+      expect(t.layout.sidebarWidth, t.id).toBeLessThanOrEqual(72);
+      for (const key of t.layout.sideSections) expect(t.supportedSections, t.id).toContain(key);
       expect(t.typography.baseFontSize, t.id).toBeGreaterThanOrEqual(8.5);
       expect(t.typography.baseFontSize, t.id).toBeLessThanOrEqual(11.5);
     }

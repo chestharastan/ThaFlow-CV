@@ -23,7 +23,7 @@ export function createId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Section order tuned for the CV's target audience. */
+/** Section order tuned for the CV's target audience. Personal details, when given, always come first. */
 export function defaultSectionOrder(target: CVTarget): SectionKey[] {
   const lead: Record<CVTarget, SectionKey[]> = {
     student: ["summary", "education", "projects", "skills", "experiences"],
@@ -31,7 +31,7 @@ export function defaultSectionOrder(target: CVTarget): SectionKey[] {
     professional: ["summary", "experiences", "skills", "projects", "education"],
     general: ["summary", "experiences", "education", "skills", "projects"],
   };
-  const first = lead[target];
+  const first: SectionKey[] = ["personalDetails", ...lead[target]];
   return [...first, ...SECTION_KEYS.filter((k) => !first.includes(k))];
 }
 

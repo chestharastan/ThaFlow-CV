@@ -12,6 +12,8 @@ import {
   isOpeningQuestion,
   isQuestionId,
   isValidEmail,
+  daysInMonth,
+  joinFullDate,
   joinPartialDate,
   levelLabel,
   levelOf,
@@ -29,6 +31,7 @@ import {
   setSkills,
   setSpokenLanguages,
   setWorked,
+  splitFullDate,
   splitPartialDate,
   tidyAnswer,
   tidyEntry,
@@ -59,7 +62,7 @@ function importedCV(): CVDocument {
   return cv;
 }
 
-const EVERY_CV_QUESTION = ["language", "name", "title", "contact", "work", "education", "projects", "skills", "languages", "about"];
+const EVERY_CV_QUESTION = ["language", "name", "title", "contact", "details", "work", "education", "projects", "skills", "languages", "about"];
 
 /** Walk the conversation with Next from the first question about the CV. */
 function walk(cv: CVDocument): QuestionId[] {
@@ -113,7 +116,7 @@ describe("a new user", () => {
   it("can skip everything except the name", () => {
     const cv = newCV();
     expect(primaryAction(cv, "name")).toBe("next");
-    for (const id of ["title", "contact", "education", "projects", "skills", "languages", "about"] as const) {
+    for (const id of ["title", "contact", "details", "education", "projects", "skills", "languages", "about"] as const) {
       expect(primaryAction(cv, id)).toBe("skip");
     }
     cv.personal.headline = "Accountant";
@@ -153,7 +156,7 @@ describe("have you worked before?", () => {
     expect(nextQuestion(cv, "education")).toBe("skills");
     // Yes with no job added yet is still an open question.
     expect(isAnswered(cv, "work")).toBe(false);
-    expect(resumeQuestion({ ...cv, personal: { fullName: "Dara", headline: "Clerk", email: "d@example.com" } })).toBe("work");
+    expect(resumeQuestion({ ...cv, personal: { fullName: "Dara", headline: "Clerk", email: "d@example.com", nationality: "Cambodian" } })).toBe("work");
   });
 
   it("changing the answer changes the branch, and keeps a section order the person has not been given a reason to lose", () => {
@@ -204,6 +207,11 @@ describe("an imported CV", () => {
     expect(primaryAction(cv, "title")).toBe("skip");
     expect(resumeQuestion(cv)).toBe("title");
     cv.personal.headline = "Sales Assistant";
+    // A file never brings personal details with it: they are asked like anything else that is missing.
+    expect(primaryAction(cv, "details")).toBe("skip");
+    expect(resumeQuestion(cv)).toBe("details");
+    cv.personal.dateOfBirth = "1998-04-02";
+    expect(primaryAction(cv, "details")).toBe("next");
     expect(resumeQuestion(cv)).toBe("about");
   });
 
@@ -465,6 +473,59 @@ describe("entries", () => {
     expect(tidyEntry("work", job)).toEqual({ ...job, position: "Cashier", company: "Lucky Mart", description: "Served customers." });
     expect(tidyEntry("education", { ...blankEntry("education", "e"), institution: " RUPP ", degree: " ", fieldOfStudy: " IT " })).toMatchObject({ institution: "RUPP", degree: undefined, fieldOfStudy: "IT" });
     expect(tidyEntry("projects", { ...blankEntry("projects", "p"), name: " Run " })).toMatchObject({ name: "Run" });
+  });
+});
+
+describe("personal details", () => {
+  it("are asked after the contact details, are optional, and count as answered once any one is given", () => {
+    const cv = createEmptyCV();
+    cv.personal.fullName = "Sok Dara";
+    expect(nextQuestion(cv, "contact")).toBe("details");
+    expect(nextQuestion(cv, "details")).toBe("work");
+    expect(previousQuestion(cv, "work")).toBe("details");
+    expect(canLeave(cv, "details")).toBe(true);
+    expect(isAnswered(cv, "details")).toBe(false);
+    cv.personal.gender = "female";
+    expect(isAnswered(cv, "details")).toBe(true);
+    expect(primaryAction(cv, "details")).toBe("next");
+  });
+
+  it("are tidied on leaving: stray spaces go, and a box left blank is not kept", () => {
+    const cv = createEmptyCV();
+    cv.personal = { fullName: "Sok Dara", gender: "male", dateOfBirth: "1998-04-02", placeOfBirth: "  Kandal Province ", nationality: "   ", maritalStatus: "single", height: " 1.70 m" };
+    tidyAnswer(cv, "details");
+    expect(cv.personal).toEqual({ fullName: "Sok Dara", gender: "male", dateOfBirth: "1998-04-02", placeOfBirth: "Kandal Province", nationality: undefined, maritalStatus: "single", height: "1.70 m", health: undefined });
+    expect(cvDocumentSchema.safeParse(cv).success).toBe(true);
+  });
+});
+
+describe("a whole date", () => {
+  it("splits a stored date of birth into day, month and year", () => {
+    expect(splitFullDate("1998-04-02")).toEqual({ day: "02", month: "04", year: "1998" });
+    expect(splitFullDate("1998-04")).toEqual({ day: "", month: "04", year: "1998" });
+    expect(splitFullDate("1998")).toEqual({ day: "", month: "", year: "1998" });
+    expect(splitFullDate("2 April 1998")).toEqual({ day: "", month: "", year: "" });
+    expect(splitFullDate(undefined)).toEqual({ day: "", month: "", year: "" });
+  });
+
+  it("stores the whole date once all three parts are chosen, and a partial date until then", () => {
+    expect(joinFullDate({ day: "02", month: "04", year: "1998" })).toEqual({ value: "1998-04-02", valid: true });
+    expect(joinFullDate({ day: "", month: "04", year: "1998" })).toEqual({ value: "1998-04", valid: true });
+    expect(joinFullDate({ day: "", month: "", year: "1998" })).toEqual({ value: "1998", valid: true });
+    expect(joinFullDate({ day: "", month: "", year: "" })).toEqual({ value: "", valid: true });
+    expect(joinFullDate({ day: "02", month: "04", year: "១៩៩៨" })).toEqual({ value: "1998-04-02", valid: true });
+  });
+
+  it("does not store a day without its month and year, or a day the month does not have", () => {
+    expect(joinFullDate({ day: "02", month: "", year: "" })).toEqual({ value: "", valid: false });
+    expect(joinFullDate({ day: "02", month: "", year: "1998" })).toEqual({ value: "1998", valid: false });
+    expect(joinFullDate({ day: "31", month: "04", year: "1998" })).toEqual({ value: "1998-04", valid: false });
+    expect(joinFullDate({ day: "29", month: "02", year: "1999" })).toEqual({ value: "1999-02", valid: false });
+    expect(joinFullDate({ day: "29", month: "02", year: "2000" })).toEqual({ value: "2000-02-29", valid: true });
+    expect(daysInMonth({ month: "02", year: "1999" })).toBe(28);
+    expect(daysInMonth({ month: "02", year: "" })).toBe(29);
+    expect(daysInMonth({ month: "", year: "1999" })).toBe(31);
+    expect(daysInMonth({ month: "09", year: "1999" })).toBe(30);
   });
 });
 

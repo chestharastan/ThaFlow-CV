@@ -25,7 +25,7 @@ import { SectionQuestion } from "./entries";
 import { Frame, Heading } from "./frame";
 import { createUrl, templatesUrl, useFlowNav } from "./nav";
 import { SourceQuestion, StartQuestion, type BuildFromImport, type ImportState, type OpeningFailure } from "./opening";
-import { AboutQuestion, ContactQuestion, LanguageQuestion, LanguagesQuestion, NameQuestion, SkillsQuestion, TitleQuestion, type QuestionProps } from "./questions";
+import { AboutQuestion, ContactQuestion, DetailsQuestion, LanguageQuestion, LanguagesQuestion, NameQuestion, SkillsQuestion, TitleQuestion, type QuestionProps } from "./questions";
 
 const IDLE: ImportState = { phase: "idle" };
 
@@ -188,6 +188,9 @@ export function CreateFlow() {
       break;
     case "contact":
       screen = <ContactQuestion {...props} />;
+      break;
+    case "details":
+      screen = <DetailsQuestion {...props} />;
       break;
     case "work":
     case "education":

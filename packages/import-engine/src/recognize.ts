@@ -23,9 +23,16 @@ import type { ImportedCV } from "./types";
 const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
 const URL = /\b(?:https?:\/\/)?(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/[^\s,;]*)?/i;
 const PHONE = /(?:\+|\(?\b0)[\d\s().-]{6,}\d|\b\d{3}[\s.-]\d{3}[\s.-]\d{3,4}\b/;
+/** A web address and nothing else. */
+const BARE_URL = /^(?:https?:\/\/)?(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/[^\s,;]*)?$/i;
 /** Personal data a modern CV should not carry; dropped on import. */
 const PRIVATE = /^(date of birth|d\.?o\.?b\.?|birth ?date|born|place of birth|gender|sex|marital status|nationality|religion|id (card|number|no)|national id|passport|height|weight|health|age|ថ្ងៃខែឆ្នាំកំណើត|ថ្ងៃកំណើត|ទីកន្លែងកំណើត|ភេទ|សញ្ជាតិ|ស្ថានភាពគ្រួសារ|អត្តសញ្ញាណប័ណ្ណ|លេខអត្តសញ្ញាណប័ណ្ណ|សាសនា|កម្ពស់|ទម្ងន់|សុខភាព|អាយុ)\s*[:：៖-]/i;
-const LABEL = /^(e-?mail|email address|phone|tel|telephone|mobile|cell|address|location|website|web|linkedin|github|អ៊ីមែល|ទូរស័ព្ទ|លេខទូរស័ព្ទ|អាសយដ្ឋាន|ទីតាំង|គេហទំព័រ)\s*[:：៖]\s*/i;
+const LABEL = /^(e-?mail|email address|phone|phone number|mobile number|tel|telephone|mobile|cell|address|current address|location|website|web|linkedin|github|telegram|អ៊ីមែល|ទូរស័ព្ទ|លេខទូរស័ព្ទ|អាសយដ្ឋាន|អាសយដ្ឋានបច្ចុប្បន្ន|ទីលំនៅបច្ចុប្បន្ន|ទីតាំង|គេហទំព័រ)\s*[:：៖]\s*/i;
+/** A CV set as a form names the person and the job on labelled rows: "Name : Sok Dara", "Apply for : Cashier". */
+const NAME_LABEL = /^(name|full name|name in full|surname and name|ឈ្មោះ|ឈ្មោះពេញ|នាមត្រកូល និង ?នាម|គោត្តនាម និង ?នាម)\s*[:：៖]\s*/i;
+const POSITION_LABEL = /^(position|position appl(?:y|ied)(?: for)?|appl(?:y|ying|ied) for|applied position|desired position|job title|មុខតំណែង|មុខតំណែងដែលស្នើសុំ|ដាក់ពាក្យមុខតំណែង|សុំបំរើការងារផ្នែក|ស្នើសុំដាក់ពាក្យផ្នែក)\s*[:：៖]\s*/i;
+/** What a page is headed with before the CV starts: the document's title, and the national motto of a formal Cambodian sheet. */
+const PAGE_TITLE = /^(curriculum vitae|curriculum vitæ|c\.?v\.?|resume|résumé|kingdom of cambodia|nation,? religion,? king|ប្រវត្តិរូបសង្ខេប|ប្រវត្តិរូប|ជីវប្រវត្តិ|ជីវប្រវត្តិសង្ខេប|ព្រះរាជាណាចក្រកម្ពុជា|ជាតិ សាសនា ព្រះមហាក្សត្រ)$/i;
 const SENTENCE_END = /[.។!?]$/;
 const JOB_WORD = /\b(manager|developer|engineer|assistant|officer|analyst|accountant|intern|director|teacher|lecturer|designer|consultant|specialist|coordinator|lead|head|executive|supervisor|technician|clerk|cashier|driver|nurse|administrator|representative|associate|trainee|volunteer|founder|owner|chef|waiter|waitress|receptionist|secretary|tutor|researcher|editor|writer|architect|auditor|agent|advisor|operator|salesperson|sales)\b|ប្រធាន|អ្នកគ្រប់គ្រង|អ្នកអភិវឌ្ឍ|ជំនួយការ|មន្ត្រី|មន្រ្តី|គណនេយ្យករ|វិស្វករ|គ្រូ|បុគ្គលិក|អ្នកវិភាគ|អ្នកលក់|អ្នកបកប្រែ|កម្មសិក្សាការី|នាយក|អ្នករចនា|បេឡាករ|លេខា/i;
 const SCHOOL_WORD = /\b(university|college|institute|school|academy|polytechnic|faculty)\b|សាកលវិទ្យាល័យ|វិទ្យាស្ថាន|សាលា|វិទ្យាល័យ|មហាវិទ្យាល័យ|សាលារៀន/i;
@@ -50,6 +57,8 @@ const splitParts = (text: string) =>
     .filter(Boolean);
 
 const joined = (line: Line) => (line.right ? `${line.text}  ${line.right}` : line.text);
+/** A row label keeps its value: "Address:  12 Street 240" is one piece, not two. */
+const labelWithValue = (text: string) => text.replace(/^([^:：៖|·•]{1,40}[:：៖])\s{2,}/, "$1 ");
 const isBullet = (line: Line) => Boolean(line.bullet) || isBulletText(line.text);
 const titleLike = (line: Line) => !isBullet(line) && line.text.length <= 90 && !SENTENCE_END.test(line.text) && !TECH_LABEL.test(line.text) && line.text.split(/\s+/).length <= 14;
 
@@ -84,10 +93,14 @@ function unwrap(lines: Line[], options: { anyIndent?: boolean; list?: boolean; c
       OPENS_LABEL.test(line.text) ||
       // A line that is only a date is the date of an entry, not the end of the sentence above it.
       Boolean(dates && dates.rest.length <= 3) ||
-      (options.contact && (EMAIL.test(line.text) || PHONE.test(line.text)));
+      (options.contact && (EMAIL.test(line.text) || PHONE.test(line.text))) ||
+      // A web address on a line of its own is a detail of its own, unless the line above broke off inside one.
+      Boolean(options.contact && previous && BARE_URL.test(line.text) && !/[.@/_-]$/.test(previous.text));
     let joins = false;
     if (previous && !fresh) {
-      const sameStyle = Boolean(previous.tail ?? previous.emph) === Boolean(line.emph) && Math.abs((previous.size ?? 0) - (line.size ?? 0)) <= 0.6;
+      // Bold and italic are both "not the body face": where the faces are known, a title and the line under it differ.
+      const sameFace = previous.face === undefined || line.face === undefined || (previous.endFace ?? previous.face) === line.face;
+      const sameStyle = sameFace && Boolean(previous.tail ?? previous.emph) === Boolean(line.emph) && Math.abs((previous.size ?? 0) - (line.size ?? 0)) <= 0.6;
       const hanging = isBulletText(previous.text) ? 18 : slack(line);
       const aligned = options.anyIndent || previous.x === undefined || line.x === undefined || (line.x <= previous.x + hanging && line.x >= previous.x - 60);
       const midPhrase = DANGLING.test(previous.text) || /\p{L}-$/u.test(previous.text);
@@ -132,6 +145,10 @@ function datedLine(line: Line): { dates: FoundDates; title: string } | null {
     const left = findDates(line.text);
     if (left && left.rest.length <= 3) return { dates: left, title: line.right };
   }
+  // "2019: Diploma in Accounting": dates that open the line and end in a colon label what follows.
+  const led = /^([^:：៖]{4,40})[:：៖]\s+(\S.*)$/.exec(line.text);
+  const opening = led ? findDates(led[1]!) : null;
+  if (led && opening && opening.rest.length <= 3) return { dates: opening, title: led[2]! };
   const found = findDates(line.text);
   if (!found) return null;
   if (found.rest.length <= 3) return { dates: found, title: "" };
@@ -364,8 +381,11 @@ function readLanguages(lines: Line[]): LanguageSkill[] {
 /** Simple dated lists: certificates and awards are a name, optionally followed by who issued it. */
 function readNamedItems(input: Line[]): { name: string; issuer?: string; date?: string; description?: string }[] {
   const out: { name: string; issuer?: string; date?: string; description?: string }[] = [];
-  // When every line is set in the heavier face it tells names and issuers apart no longer.
-  const lines = input.every((l) => l.emph) ? input.map(({ emph: _emph, ...rest }) => rest as Line) : input;
+  // Names are set in one face. A line in another (an italic issuer under a bold name) is not a name,
+  // and when every line is set in the heavier face it tells names and issuers apart no longer.
+  const nameFace = input.find((l) => l.emph)?.face;
+  const marked = input.map((l) => (l.emph && nameFace !== undefined && l.face !== undefined && l.face !== nameFace ? (({ emph: _emph, ...rest }) => rest as Line)(l) : l));
+  const lines = marked.every((l) => l.emph) ? marked.map(({ emph: _emph, ...rest }) => rest as Line) : marked;
   for (const line of lines) {
     const text = isBullet(line) ? stripBullet(joined(line)) : joined(line);
     const dates = findDates(text);
@@ -395,8 +415,14 @@ function readPersonal(header: Line[], contact: Line[], all: Line[], nameLine: Li
   const personal: Partial<PersonalInformation> = {};
   const loose: string[] = [];
   const texts: string[] = [];
+  // What the document itself labels as the name and the job, which settles both.
+  const stated: { name?: string; headline?: string } = {};
   const take = (token: string, fromContact: boolean) => {
     if (PRIVATE.test(token)) return;
+    const name = NAME_LABEL.exec(token);
+    if (name) return void (stated.name ??= token.slice(name[0].length).trim() || undefined);
+    const position = POSITION_LABEL.exec(token);
+    if (position) return void (stated.headline ??= token.slice(position[0].length).trim() || undefined);
     const label = LABEL.exec(token);
     const value = label ? token.slice(label[0].length).trim() : token;
     const kind = label?.[1]?.toLowerCase() ?? "";
@@ -411,7 +437,7 @@ function readPersonal(header: Line[], contact: Line[], all: Line[], nameLine: Li
     }
     if (/linkedin\.com/i.test(value)) return void (personal.linkedin ??= value);
     if (/github\.com/i.test(value)) return void (personal.github ??= value);
-    if (/^(address|location|អាសយដ្ឋាន|ទីតាំង)$/.test(kind)) return void (personal.location ??= value);
+    if (/^(address|current address|location|អាសយដ្ឋាន|អាសយដ្ឋានបច្ចុប្បន្ន|ទីលំនៅបច្ចុប្បន្ន|ទីតាំង)$/.test(kind)) return void (personal.location ??= value);
     const phone = PHONE.exec(value);
     if (phone && value.replace(/\D/g, "").length >= 8 && value.replace(/[\d\s().+-]/g, "").length <= 2) return void (personal.phone ??= phone[0].trim());
     if (URL.test(value) && !/\s/.test(value)) return void (personal.website ??= value);
@@ -420,16 +446,16 @@ function readPersonal(header: Line[], contact: Line[], all: Line[], nameLine: Li
     if (fromContact) return void (personal.location ??= value);
     texts.push(value);
   };
-  for (const line of header) for (const token of splitTokens(joined(line))) take(token, false);
-  for (const line of contact) for (const token of splitTokens(joined(line))) take(token, true);
+  for (const line of header) for (const token of splitTokens(labelWithValue(joined(line)))) take(token, false);
+  for (const line of contact) for (const token of splitTokens(labelWithValue(joined(line)))) take(token, true);
   if (!personal.email) personal.email = all.map((l) => EMAIL.exec(joined(l))?.[0]).find(Boolean);
 
   const isName = (text: string) => text.length <= 60 && !/[\d@:/]/.test(text) && text.split(/\s+/).length <= 6 && (text.match(/\p{L}/gu) ?? []).length >= 2;
-  const name = nameLine?.text ?? texts.find(isName);
+  const name = stated.name ?? nameLine?.text ?? texts.find(isName);
   if (name) {
     personal.fullName = name;
     const rest = texts.filter((t) => t !== name);
-    const headline = rest.find((t) => t.length <= 80 && !SENTENCE_END.test(t) && !/\d{3,}/.test(t));
+    const headline = stated.headline ?? rest.find((t) => t.length <= 80 && !SENTENCE_END.test(t) && !/\d{3,}/.test(t));
     if (headline) personal.headline = headline;
     for (const text of rest.filter((t) => t !== headline)) {
       if (!personal.location && text.length <= 60 && !SENTENCE_END.test(text)) personal.location = text;
@@ -523,6 +549,31 @@ function sectionTitles(lines: Line[], nameLine: Line | undefined): Map<Line, Sec
   return titles;
 }
 
+/* ---------- Forms ---------- */
+
+/**
+ * A CV typed as a form sets each row as a label, a tab, then a colon and the value ("Name ⇥ : Sok Dara").
+ * The colon belongs with the label, where every rule that reads labels expects it.
+ */
+function formRow(line: Line): Line {
+  const colon = line.right ? /^[:：៖]\s*/.exec(line.right) : null;
+  if (!colon || /[:：៖]$/.test(line.text)) return line;
+  const { right, ...rest } = line;
+  const value = right!.slice(colon[0].length);
+  return { ...rest, text: `${line.text}:`, ...(value ? { right: value } : {}) };
+}
+
+/** The first lines of a page are often its title and nothing else. They are not the person's name, nor a section. */
+function withoutPageTitle(lines: Line[]): Line[] {
+  let content = 0;
+  return lines.filter((line) => {
+    if (content >= 3) return true;
+    if (!line.right && PAGE_TITLE.test(line.text.replace(/\s+/g, " ").trim())) return false;
+    content += 1;
+    return true;
+  });
+}
+
 /* ---------- The recognizer ---------- */
 
 /**
@@ -531,7 +582,8 @@ function sectionTitles(lines: Line[], nameLine: Line | undefined): Map<Line, Sec
  * not fit a section is returned in `unplaced`.
  */
 export function parseCVLines(input: Line[]): ImportedCV {
-  const lines = input.map((l) => ({ ...l, text: tidy(l.text), ...(l.right ? { right: tidy(l.right) } : {}) })).filter((l) => l.text && !PRIVATE.test(l.text));
+  const tidied = input.map((l) => formRow({ ...l, text: tidy(l.text), ...(l.right ? { right: tidy(l.right) } : {}) })).filter((l) => l.text && !PRIVATE.test(l.text));
+  const lines = withoutPageTitle(tidied);
   const nameLine = findNameLine(lines);
   const titled = sectionTitles(lines, nameLine);
   const sorted: Record<Section | "header", Line[]> = { header: [], summary: [], experiences: [], education: [], skills: [], projects: [], certifications: [], languages: [], awards: [], contact: [], other: [] };

@@ -1,7 +1,7 @@
 # ThaFlow CV
 
 A CV builder in the ThaFlow family, for Khmer and English. Someone answers a few questions, picks one
-of 30 templates and downloads their CV as PDF or Word. There is no account and no CV database: the CV
+of 40 templates and downloads their CV as PDF or Word. There is no account and no CV database: the CV
 lives in the person's browser (IndexedDB), and the app is a static site with nothing server-side to
 store it in. AI is optional; everything works without it and offline. An existing CV can be brought in
 from a PDF, a Word file, a scan or a photo, and is read on the device.
@@ -39,7 +39,7 @@ The optional cloud AI server is separate: see [`apps/ai-server/README.md`](apps/
 | --- | --- |
 | `/` | What this does, and **Create CV**. CVs already on this device are listed underneath. |
 | `/create/` | One question per screen. First: "Do you already have a CV?" If yes, a PDF, a Word file, a scan or a photo can be read on the device to fill in the answers; otherwise, or if they prefer, they type. |
-| `/templates/?id=` | 30 templates, each rendered with the person's own answers. |
+| `/templates/?id=` | 40 templates, each rendered with the person's own answers. |
 | `/editor/?id=` | The finished CV: preview, download (PDF, Word, backup file), and edit anything. |
 | `/settings/` | Interface language, optional AI, local data. |
 
@@ -56,7 +56,7 @@ packages/
   cv-core/          CV schema (Zod), factories, migrations, JSON backup format, dates  ← source of truth
   questionnaire/    The questions, their order and branching, as data and pure functions
   import-engine/    Reads an existing CV (PDF, Word, scan or photo) on the device: page layout, OCR, rule-based recogniser
-  template-engine/  30 templates as configuration over one React/CSS renderer; print stylesheet
+  template-engine/  40 templates as configuration over one React/CSS renderer; print stylesheet
   export-engine/    Word (DOCX) renderer, PDF via browser print, backup download
   rule-engine/      Validation and quality rules, text classification, AI-output integrity checks
   storage/          Dexie/IndexedDB store: CVs, revisions, suggestions, settings
@@ -66,6 +66,25 @@ packages/
 
 Packages are plain TypeScript with no Next.js dependency (only `template-engine` needs React), so a
 desktop or native shell, or another ThaFlow product, can reuse them.
+
+## The templates
+
+Forty designs, every one a set of choices (page layout, header, section titles, where dates go, colour,
+type) read by a single renderer, so a new template is configuration. Ten of them are the styles CVs are
+most often set in here in Cambodia:
+
+- **The standard sheet** (`sambor`, `chaktomuk`, and `vihear` for Khmer): the page is titled
+  "Curriculum Vitae" (`vihear` puts the national motto above it), the photo stands at the top right, and
+  every line is a label, a colon and its value: name, address, phone, then each school and job with its
+  dates where a label would be.
+- **Photo-led designs with a coloured side column** (`sesan`, `kravanh`, `kirirom`, `srepok`, `sangke`,
+  `aoral`) and `banteay`: a large photo, contact details with small icons, section titles in pills, bars
+  or bands.
+
+These print the **personal details** a CV here usually states: sex, date and place of birth, nationality,
+marital status, height and health. All are optional. They are one question in the flow, they sit with
+the rest of "Personal" in the editor, and whatever is filled in is printed as its own section by every
+template (it can be hidden or moved under Style like any other section).
 
 ## How the pieces fit
 
@@ -80,7 +99,9 @@ desktop or native shell, or another ThaFlow product, can reuse them.
      other and carried across page breaks; date margins, label columns and small tables stay row by
      row; lines broken by a narrow column are joined again. A tilted photo is straightened first.
   3. *Recognise the CV.* Rules sort the lines into sections and fields. Only what is in the file is
-     used; nothing is guessed, and personal data such as date of birth, gender or ID numbers is dropped.
+     used; nothing is guessed, and personal data such as date of birth, gender or ID numbers is dropped
+     (the person is asked for the personal details they want printed, like any other answer). A CV typed
+     as a form is read row by row: "Name : Sok Dara", "Apply for : Cashier", a job's dates and its title.
 
   The reading models (24 MB) are fetched once, from where ThaOCR publishes them, the first time
   someone imports a picture or a scan; they are checked against known fingerprints and kept in the
@@ -107,12 +128,15 @@ mark is `apps/web/components/logo.tsx` (also `public/icon.svg` and `public/brand
   the app asks for a JPG or PNG.
 - **Khmer PDFs** are read as pictures, because their text layer is usually unusable. That works, but
   it is slower than reading text and has the limits above. Khmer Word files are read exactly.
-- **Importing depends on the layout.** It is tested against this app's 30 templates and against eight
+- **Importing depends on the layout.** It is tested against this app's 40 templates and against eight
   layouts made the way other tools lay CVs out (sidebars, narrow gutters, tables, dates in a margin),
   as text and as pictures. A design unlike any of those can still be read in the wrong order or lose
   entries: three-column grids and text boxes placed freely are the known weak spots.
-- **Word layout.** Two-column templates export as one column so the file stays easy to edit. Khmer
-  text names a Khmer font; Word shows it only if that font is installed.
+- **Word layout.** Two-column templates export as one column so the file stays easy to edit, and page
+  decoration (side-column fills, icons, pills' round ends) is left out. Khmer text names a Khmer font;
+  Word shows it only if that font is installed.
+- **A photo is added in the editor** (Personal → Photo), not in the questions, so the photo-led
+  templates show their photo only after that.
 - **On-device AI** has an interface but no bundled model yet.
 - **Local storage is not encrypted** and browsers can evict it; the backup file is the real safeguard.
 - **Verification** is automated in Chromium. Word files have not been opened in Microsoft Word, and

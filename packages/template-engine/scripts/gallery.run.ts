@@ -15,6 +15,7 @@
  *   GALLERY_ONLY=minimal,modern   limit to some template ids
  *   GALLERY_VARIANTS=en,km        which CVs to render (en, km, mixed, stress, empty, accent, font)
  *   GALLERY_PDF=all|none|id,id    which templates to print (default: a varied set)
+ *   GALLERY_PDF_LANG=en|km        print in this language (default: Khmer for Khmer-first templates, else English)
  *   GALLERY_PAGES=0               skip the per-template screenshots
  *   GALLERY_DOCX=1                also write docx/<variant>/<id>.docx and, with LibreOffice installed,
  *                                 sheets/docx-<variant>-<n>.png of their first pages
@@ -161,7 +162,8 @@ test("render the template gallery", async () => {
     for (const id of pdfIds) {
       const template = templates.find((t) => t.id === id);
       if (!template || !chosen.includes(template)) continue;
-      const khmerFirst = template.traits.khmerFirst || template.traits.bilingual;
+      const forced = env("GALLERY_PDF_LANG");
+      const khmerFirst = forced ? forced === "km" : template.traits.khmerFirst || template.traits.bilingual;
       const variant = khmerFirst ? "km" : "en";
       const cv = longCV(khmerFirst ? fullKhmerCV({ photo }) : fullEnglishCV({ photo }));
       const file = join(out, "html", `print-${id}.html`);

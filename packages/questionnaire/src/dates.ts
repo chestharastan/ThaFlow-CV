@@ -39,3 +39,39 @@ export function joinPartialDate(parts: DateParts): JoinedDate {
   if (!/^\d{4}$/.test(year) || Number(year) < 1900 || Number(year) > 2100) return { value: "", valid: false };
   return { value: month ? `${year}-${month}` : year, valid: true };
 }
+
+/* ---------- A whole date: the date of birth ---------- */
+
+export const DAY_VALUES = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
+
+export interface FullDateParts extends DateParts {
+  /** "01" to "31", or "" when the day is not given. */
+  day: string;
+}
+
+const FULL_DATE = /^(\d{4})(?:-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?)?$/;
+
+/** The parts of a stored date of birth: "YYYY-MM-DD", or a partial date. Anything else reads as empty. */
+export function splitFullDate(value: string | undefined): FullDateParts {
+  const match = FULL_DATE.exec(value ?? "");
+  return match ? { day: match[3] ?? "", month: match[2] ?? "", year: match[1]! } : { day: "", month: "", year: "" };
+}
+
+/** How many days the month has (31 while the month is unknown; February counts a leap day unless the year rules it out). */
+export function daysInMonth(parts: DateParts): number {
+  if (!(MONTH_VALUES as readonly string[]).includes(parts.month)) return 31;
+  const year = /^\d{4}$/.test(parts.year) ? Number(parts.year) : 2000;
+  return new Date(Date.UTC(year, Number(parts.month), 0)).getUTCDate();
+}
+
+/**
+ * The date to store: "YYYY-MM-DD" once the day, the month and the year are all
+ * chosen, a partial date before that. A day without its month and year, or a
+ * day the month does not have, cannot be stored.
+ */
+export function joinFullDate(parts: FullDateParts): JoinedDate {
+  const base = joinPartialDate(parts);
+  if (!DAY_VALUES.includes(parts.day)) return base;
+  if (!base.valid || base.value.length !== 7 || Number(parts.day) > daysInMonth(parts)) return { value: base.value, valid: false };
+  return { value: `${base.value}-${parts.day}`, valid: true };
+}

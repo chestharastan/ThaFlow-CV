@@ -24,7 +24,7 @@ In their words (lightly trimmed):
 | --- | --- | --- |
 | `/` | Landing | One or two sentences on what this does, and one button: **Create CV**. If CVs already exist on this device, a plain text list of them underneath. |
 | `/create/` | Questions | One question per screen, a box (or a few closely related boxes) to answer, **Next**. First: "Do you already have a CV?" → if yes, "use it?" → choose a PDF/Word file (read on the device) or type instead. Then the same questions for everyone, pre-filled when a file was read. |
-| `/templates/?id=<cvId>` | Choose a template | 30 templates, each rendered with this person's own answers. Pick one, continue. |
+| `/templates/?id=<cvId>` | Choose a template | 40 templates, each rendered with this person's own answers. Pick one, continue. |
 | `/editor/?id=<cvId>` | Your CV | The finished CV: preview, download (PDF / Word), and edit anything. |
 | `/settings/` | Settings | Interface language, optional AI, local data. Reached from a small text link, not promoted. |
 
@@ -38,6 +38,22 @@ Navigation contract (all client-side, static export, trailing slashes):
 - Confirming a template → `/editor/?id=<cvId>`. The editor's "Template" action links back to
   `/templates/?id=<cvId>`.
 - An unknown or missing id shows a short not-found message with a link home. Never a blank page.
+
+## The CVs people expect here
+
+> The product owner later sent the designs CVs are sold in locally (the standard "label : value" sheet in
+> English and in Khmer, and photo-led designs with a coloured side column) with: *"make like those design"*.
+
+Ten templates follow them (see the README). What that asked of the product, beyond new looks:
+
+- **Personal details are part of a CV here**: sex, date and place of birth, nationality, marital status,
+  often height and health. They are optional, asked on one screen after the contact details ("Skip" while
+  it is empty, like every optional question), and printed as their own section by every template.
+- **The standard sheet is a form.** Its header, its personal details, and every school, job, skill group
+  and language are rows of a label, a colon and a value, with the colons in one column down the page.
+- **A photo matters.** Half the templates have a slot for one; it is added in the editor.
+- These pages carry colour and decoration (filled side columns, pills, bands). That belongs to the CV a
+  person chooses, never to the interface, which stays as described below.
 
 ## Design language
 

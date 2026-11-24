@@ -5,7 +5,7 @@ import { z } from "zod";
  * to it, rules validate it, AI suggests changes to it, templates render it and
  * exporters read it.
  */
-export const CV_SCHEMA_VERSION = 1;
+export const CV_SCHEMA_VERSION = 2;
 
 export const cvLanguageSchema = z.enum(["en", "km"]);
 export type CVLanguage = z.infer<typeof cvLanguageSchema>;
@@ -31,9 +31,36 @@ export const personalSchema = z.object({
   github: optStr,
   /** Data URL. Kept local; only rendered by templates that support photos. */
   photo: optStr,
+  /*
+   * Personal details. All optional, typed by the person, and printed as their
+   * own section ("personalDetails"): CVs in Cambodia usually carry them.
+   */
+  /** "male", "female", or the person's own wording. */
+  gender: optStr,
+  /** "YYYY-MM-DD" (a partial date or free text is kept as written). */
   dateOfBirth: optStr,
+  placeOfBirth: optStr,
+  nationality: optStr,
+  /** "single", "married", or the person's own wording. */
+  maritalStatus: optStr,
+  height: optStr,
+  health: optStr,
 });
 export type PersonalInformation = z.infer<typeof personalSchema>;
+
+/** The personal details, in the order they are printed. */
+export const PERSONAL_DETAIL_KEYS = ["gender", "dateOfBirth", "placeOfBirth", "nationality", "maritalStatus", "height", "health"] as const;
+export type PersonalDetailKey = (typeof PERSONAL_DETAIL_KEYS)[number];
+
+/** Answers that are stored as a code and printed in the CV's language. Anything else is printed as written. */
+export const GENDERS = ["male", "female"] as const;
+export type Gender = (typeof GENDERS)[number];
+export const MARITAL_STATUSES = ["single", "married"] as const;
+export type MaritalStatus = (typeof MARITAL_STATUSES)[number];
+
+export function hasPersonalDetails(personal: PersonalInformation): boolean {
+  return PERSONAL_DETAIL_KEYS.some((key) => Boolean(personal[key]?.trim()));
+}
 
 export const employmentTypeSchema = z.enum([
   "full-time",
@@ -151,6 +178,7 @@ export const customSectionSchema = z.object({
 export type CustomSection = z.infer<typeof customSectionSchema>;
 
 export const SECTION_KEYS = [
+  "personalDetails",
   "summary",
   "experiences",
   "education",

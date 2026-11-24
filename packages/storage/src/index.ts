@@ -106,7 +106,16 @@ export class CVStore {
 
   async listRevisions(cvId: string): Promise<CVRevision[]> {
     const all = await this.db.revisions.where("cvId").equals(cvId).sortBy("createdAt");
-    return all.reverse();
+    // A snapshot kept by an earlier version is brought up to date on read, like the CVs themselves.
+    const out: CVRevision[] = [];
+    for (const revision of all.reverse()) {
+      try {
+        out.push({ ...revision, snapshot: migrateCV(revision.snapshot) });
+      } catch {
+        // An unreadable snapshot is left out rather than breaking the list.
+      }
+    }
+    return out;
   }
 
   /* ---------- Suggestions ---------- */

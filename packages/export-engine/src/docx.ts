@@ -2,6 +2,8 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  HorizontalPositionAlign,
+  HorizontalPositionRelativeFrom,
   ImageRun,
   LevelFormat,
   Packer,
@@ -9,6 +11,9 @@ import {
   ShadingType,
   TabStopType,
   TextRun,
+  TextWrappingSide,
+  TextWrappingType,
+  VerticalPositionRelativeFrom,
   type IBorderOptions,
   type IParagraphOptions,
   type IRunOptions,
@@ -25,9 +30,13 @@ import {
   getTemplate,
   getVisibleSections,
   hasKhmer,
+  identityRows,
   joinParts,
   parseDescription,
+  personalDetailRows,
+  placeSections,
   resolveAppearance,
+  type FieldRow,
   type CVTemplate,
   type FontKey,
   type HeadingStyle,
@@ -39,9 +48,10 @@ import {
  * configuration as the HTML renderer, and carries over what Word can express
  * and a person can still edit comfortably: fonts, the accent colour, header
  * alignment, the heading treatment, where dates sit, bullets, spacing, banner
- * fills and the photo. Everything else falls back to a clean single column:
+ * fills, the photo, the page title of the formal sheets and their
+ * "label : value" rows. Everything else falls back to a clean single column:
  * two-column templates are flattened, sidebars lose their fill, and monograms,
- * timelines and skill tags become plain text.
+ * timelines, skill tags, icons and page decoration become plain text or go.
  */
 
 const TWIPS_PER_MM = 1440 / 25.4;
@@ -63,6 +73,10 @@ interface Style {
   name: Fonts;
   /** Hex without "#". */
   accent: string;
+  /** Text colour that reads on a fill of the accent. */
+  onAccent: string;
+  /** The pale bar of "plate" headings and the text colour on it. */
+  plate: { background: string; text: string };
   text: string;
   muted: string;
   rule: string;
@@ -74,13 +88,22 @@ interface Style {
   /** Paragraph spacing, twips. */
   gap: { section: number; entry: number };
   alignment: (typeof AlignmentType)[keyof typeof AlignmentType];
-  /** Left indent of entry text when dates sit in a left column, twips (0 otherwise). */
+  /** Width of the column that holds dates (and, on a form, row labels), twips (0 when dates sit elsewhere). */
   dateColumn: number;
+  /** Where the text beside that column starts: after the colon on a form. */
+  textIndent: number;
+  /** The label column of "label : value" rows, twips. */
+  labelColumn: number;
+  /** Every entry, skill group and language is a "label : value" row. */
+  form: boolean;
   /** Synthetic slanting hurts Khmer; italics are Latin-only and only where the template uses them. */
   italics: boolean;
   /** Banner fill behind the header paragraphs, if the template has one. */
   banner: { fill: string; text: string; muted: string } | null;
 }
+
+/** Room for ": " after the label column of a row, twips. */
+const COLON_WIDTH = 170;
 
 const hex = (color: string) => color.replace("#", "").toUpperCase();
 const twips = (mm: number) => Math.round(mm * TWIPS_PER_MM);
@@ -100,12 +123,17 @@ function styleFor(cv: CVDocument, template: CVTemplate): Style {
   // Half-points. Khmer text sets larger than Latin at the same size in Word's fallback fonts.
   const size = Math.round(type.baseFontSize * (khmer ? type.khmerScale : 1) * 2);
   const banner = design.header === "banner";
+  const form = design.entry === "form";
+  // Khmer month names run longer than English ones.
+  const dateColumn = design.entry === "date-left" || form ? twips(khmer ? 46 : 38) : 0;
   return {
     template,
     body: fontsFor(look.bodyFont),
     heading: fontsFor(look.headingFont),
     name: fontsFor(look.nameFont),
     accent: hex(look.primary),
+    onAccent: hex(look.onPrimary),
+    plate: { background: hex(look.plate.background), text: hex(look.plate.text) },
     text: hex(colors.text),
     muted: hex(colors.muted),
     rule: has("rules") ? hex(look.primary) : hex(colors.rule),
@@ -114,8 +142,10 @@ function styleFor(cv: CVDocument, template: CVTemplate): Style {
     margin: { x: marginX, y: marginY },
     gap: { section: twips(density.gapSection) + 60, entry: twips(density.gapEntry) },
     alignment: design.header === "center" || design.header === "boxed" ? AlignmentType.CENTER : AlignmentType.LEFT,
-    // Khmer month names run longer than English ones.
-    dateColumn: design.entry === "date-left" ? twips(khmer ? 46 : 38) : 0,
+    dateColumn,
+    textIndent: dateColumn + (form ? COLON_WIDTH : 0),
+    labelColumn: form ? dateColumn : twips(khmer ? 42 : 38),
+    form,
     italics: design.subtitleItalic && !khmer,
     banner: banner
       ? { fill: hex(look.fill.background), text: hex(look.fill.text), muted: hex(look.fill.muted) }
@@ -158,19 +188,104 @@ function border(style: Style, weight: "rule" | "strong" = "rule", color = style.
   return { style: BorderStyle.SINGLE, size: weight === "strong" ? Math.round(base * 1.5) : base, color, space: 3 };
 }
 
-/** Indent shared by everything that belongs to an entry when dates sit in a left column. */
-const entryIndent = (style: Style) => (style.dateColumn ? { indent: { left: style.dateColumn } } : {});
+/** Indent of what belongs to an entry, when its dates sit in a left column. */
+const indented = (left: number) => (left ? { indent: { left } } : {});
+
+/* ---------- Rows: "label : value" ---------- */
+
+/** One row: the label, then a colon and the value at the label column's tab stop. Wrapped lines keep to the value. */
+function fieldRow(style: Style, label: string, value: TextRun[], column = style.labelColumn): IParagraphOptions {
+  return {
+    spacing: { before: 40 },
+    indent: { left: column + COLON_WIDTH, hanging: column + COLON_WIDTH },
+    tabStops: [{ type: TabStopType.LEFT, position: column }],
+    children: [run(style, label), run(style, "\t: "), ...value],
+  };
+}
+
+const fieldRows = (style: Style, rows: FieldRow[]): Paragraph[] => rows.map((row) => new Paragraph(fieldRow(style, row.label, [run(style, row.value)])));
 
 /* ---------- Header ---------- */
+
+/** The national motto and the document's title, for the templates that head the page with them. */
+function mastheadParagraphs(cv: CVDocument, style: Style, anchored: ImageRun | null = null): Paragraph[] {
+  const { masthead } = style.template.layout;
+  if (masthead === "none") return [];
+  const labels = getCVLabels(cv.metadata.language);
+  const line = (text: string, scale: number, after: number, underline = false, lead: ImageRun | null = null) =>
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after },
+      keepNext: true,
+      children: [...(lead ? [lead] : []), run(style, text, { fonts: style.heading, bold: true, scale, allCaps: true, ...(underline ? { underline: {} } : {}) })],
+    });
+  // With a photo in the corner the title needs the height of the photo before the rows begin.
+  const after = anchored ? 1250 : 220;
+  return masthead === "national"
+    ? [line(labels.nation[0], 1.08, 0, false, anchored), line(labels.nation[1], 1.08, 160), line(labels.documentTitle, 1.18, after, true)]
+    : [line(labels.documentTitle, 1.34, after, true, anchored)];
+}
+
+function nameRun(cv: CVDocument, style: Style, color: string, scale: number): TextRun {
+  const { typography: type } = style.template;
+  return run(style, cv.personal.fullName || " ", {
+    fonts: style.name,
+    bold: type.nameWeight >= 600,
+    color,
+    scale,
+    allCaps: type.nameCase === "upper",
+    characterSpacing: type.nameTracking > 0 ? Math.round(type.nameTracking * style.size * scale * 5) : undefined,
+  });
+}
+
+/**
+ * The header of the templates that print it as a form: the page title, the
+ * photo, then the name, the position and the contact details as rows. A sheet
+ * titles that block and takes the personal details into it.
+ */
+function formHeader(cv: CVDocument, style: Style): Paragraph[] {
+  const { template } = style;
+  const { style: design, typography: type } = template;
+  const labels = getCVLabels(cv.metadata.language);
+  const details = placeSections(cv, template).header.includes("personalDetails") ? personalDetailRows(cv, labels) : [];
+  const rows = identityRows(cv, labels, details);
+  const nameColor = design.accent.includes("name") ? style.accent : style.text;
+  // The photo stands in the corner: over the title on a sheet, beside the rows otherwise, which wrap around it.
+  const sheet = design.header === "sheet";
+  const photo = photoRun(cv, template, sheet ? "corner" : "beside");
+  const out: Paragraph[] = mastheadParagraphs(cv, style, sheet ? photo : null);
+  if (sheet) out.push(heading(style, labels.sections.personalDetails, 1, 0));
+
+  const body: IParagraphOptions[] = rows.map((row) => {
+    if (row.key !== "name") return fieldRow(style, row.label, [run(style, row.value)]);
+    const name = nameRun(cv, style, nameColor, Math.min(type.nameSize, 3.2));
+    // "Lines" sets the name on its own, large; the other two make it the first row.
+    return design.header === "lines" ? { spacing: { after: 60 }, keepNext: true, children: [name] } : fieldRow(style, row.label, [name]);
+  });
+  if (photo && !sheet && body[0]) body[0] = { ...body[0], children: [photo, ...(body[0].children ?? [])] };
+  // The rule that closes the header belongs to its last row.
+  const ruled = design.header !== "sheet";
+  body.forEach((options, i) => {
+    const last = i === body.length - 1;
+    out.push(
+      new Paragraph({
+        ...options,
+        ...(last && ruled ? { border: { bottom: { ...border(style, "strong"), space: 8 } } } : {}),
+        ...(last ? { spacing: { ...options.spacing, after: Math.round(style.gap.section * 0.6) } } : {}),
+      }),
+    );
+  });
+  return out;
+}
 
 function headerParagraphs(cv: CVDocument, style: Style): Paragraph[] {
   const { template } = style;
   const { typography: type, style: design } = template;
+  if (design.header === "form" || design.header === "lines" || design.header === "sheet") return formHeader(cv, style);
   const out: IParagraphOptions[] = [];
   const nameColor = style.banner ? style.banner.text : design.accent.includes("name") ? style.accent : style.text;
   const mutedColor = style.banner ? style.banner.muted : style.muted;
   const nameScale = Math.min(type.nameSize, 3.2);
-  const name = cv.personal.fullName || " ";
 
   const photo = photoRun(cv, template);
   if (photo) out.push({ alignment: style.alignment, spacing: { after: 120 }, children: [photo] });
@@ -179,16 +294,7 @@ function headerParagraphs(cv: CVDocument, style: Style): Paragraph[] {
     alignment: style.alignment,
     spacing: { after: 40 },
     keepNext: true,
-    children: [
-      run(style, name, {
-        fonts: style.name,
-        bold: type.nameWeight >= 600,
-        color: nameColor,
-        scale: nameScale,
-        allCaps: type.nameCase === "upper",
-        characterSpacing: type.nameTracking > 0 ? Math.round(type.nameTracking * style.size * nameScale * 5) : undefined,
-      }),
-    ],
+    children: [nameRun(cv, style, nameColor, nameScale)],
   });
   if (cv.personal.headline) {
     out.push({
@@ -221,7 +327,7 @@ function headerParagraphs(cv: CVDocument, style: Style): Paragraph[] {
   // Boxed header: the same border on every header paragraph makes Word draw one box around them.
   // Banner: the same shading on every header paragraph makes one band.
   const box = design.header === "boxed" ? border(style) : null;
-  return out.map((options, i) => {
+  const header = out.map((options, i) => {
     const last = i === out.length - 1;
     return new Paragraph({
       ...options,
@@ -232,20 +338,35 @@ function headerParagraphs(cv: CVDocument, style: Style): Paragraph[] {
       ...(last ? { spacing: { ...options.spacing, after: Math.round(style.gap.section * 0.6) } } : {}),
     });
   });
+  return [...mastheadParagraphs(cv, style), ...header];
 }
 
-/** The CV's photo for templates with a photo slot. Word reads PNG and JPEG; other formats are left out. */
-function photoRun(cv: CVDocument, template: CVTemplate): ImageRun | null {
+/**
+ * The CV's photo for templates with a photo slot. Word reads PNG and JPEG; other formats are left out.
+ * Normally it sits in the text like a large letter. "beside" anchors it at the right margin with the
+ * text wrapping to its left; "corner" anchors it there over the text, which keeps its own alignment.
+ */
+function photoRun(cv: CVDocument, template: CVTemplate, placement: "inline" | "beside" | "corner" = "inline"): ImageRun | null {
   const photo = cv.personal.photo;
   if (template.layout.photo === "none" || !photo) return null;
   const match = /^data:image\/(png|jpeg);base64,/.exec(photo);
   if (!match) return null;
-  const portrait = template.layout.photo === "portrait";
+  const portrait = template.layout.photo === "portrait" || template.layout.photo === "cover";
   try {
     return new ImageRun({
       type: match[1] === "png" ? "png" : "jpg",
       data: photo,
       transformation: { width: portrait ? 94 : 102, height: portrait ? 121 : 102 },
+      ...(placement === "inline"
+        ? {}
+        : {
+            floating: {
+              horizontalPosition: { relative: HorizontalPositionRelativeFrom.MARGIN, align: HorizontalPositionAlign.RIGHT },
+              verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: 0 },
+              wrap: placement === "beside" ? { type: TextWrappingType.SQUARE, side: TextWrappingSide.LEFT } : { type: TextWrappingType.NONE },
+              margins: { left: 180000 },
+            },
+          }),
     });
   } catch {
     return null; // an unreadable image must never block the export
@@ -262,10 +383,11 @@ const RULED: Partial<Record<HeadingStyle, "top" | "bottom" | "both">> = {
   double: "both",
 };
 
-function heading(style: Style, text: string, index: number): Paragraph {
+function heading(style: Style, text: string, index: number, before = style.gap.section): Paragraph {
   const { style: design, typography: type } = style.template;
   const accent = design.accent.includes("headings");
-  const color = design.heading === "band" ? "FFFFFF" : design.heading === "tint" ? style.accent : design.heading === "label" && !accent ? style.muted : accent ? style.accent : style.text;
+  const filled = design.heading === "band" || design.heading === "pill";
+  const color = filled ? style.onAccent : design.heading === "plate" ? style.plate.text : design.heading === "tint" ? style.accent : design.heading === "label" && !accent ? style.muted : accent ? style.accent : style.text;
   const marker = design.accent.includes("markers") ? style.accent : style.muted;
   const upper = type.headingCase === "upper";
   // Small capitals carry Latin headings; Khmer has no capitals, so it keeps a readable size instead.
@@ -290,12 +412,12 @@ function heading(style: Style, text: string, index: number): Paragraph {
     }),
   );
 
-  // Banded headings carry over as shaded paragraphs.
-  const shade = design.heading === "band" ? style.accent : design.heading === "tint" ? mixColor(`#${style.accent}`, "#ffffff", 0.12).slice(1) : null;
+  // Banded headings carry over as shaded paragraphs; a pill loses its round ends.
+  const shade = filled ? style.accent : design.heading === "plate" ? style.plate.background : design.heading === "tint" ? mixColor(`#${style.accent}`, "#ffffff", 0.12).slice(1) : null;
   return new Paragraph({
     alignment: centered ? AlignmentType.CENTER : AlignmentType.LEFT,
     ...(shade ? { shading: { type: ShadingType.CLEAR, fill: shade, color: "auto" } } : {}),
-    spacing: { before: style.gap.section, after: ruled ? 110 : 90 },
+    spacing: { before, after: ruled ? 110 : 90 },
     keepNext: true,
     keepLines: true,
     border: {
@@ -309,6 +431,12 @@ function heading(style: Style, text: string, index: number): Paragraph {
 
 /* ---------- Entries ---------- */
 
+/**
+ * Where the text of an entry starts. Beside a date column it is indented past
+ * it; on a form an entry without a date has no row to sit in, and runs full width.
+ */
+const entryIndent = (style: Style, date: string) => (style.form && !date ? 0 : style.textIndent);
+
 /** Title, subtitle and date of one entry, arranged by the template's date placement. */
 function entryHead(style: Style, title: string, subtitle: string | undefined, date: string): Paragraph[] {
   const { entry } = style.template.style;
@@ -318,8 +446,15 @@ function entryHead(style: Style, title: string, subtitle: string | undefined, da
   const dateRun = (text: string) => run(style, text, { color: style.muted, scale: 0.93 });
   const out: Paragraph[] = [];
   const first = { spacing: { before: style.gap.entry }, keepNext: true, keepLines: true };
+  const left = entryIndent(style, date);
 
-  if (entry === "date-left") {
+  if (entry === "form" && date) {
+    // A row: the dates where a label would be, a colon, the title.
+    out.push(new Paragraph({ ...fieldRow(style, date, [titleRun], style.dateColumn), ...first }));
+  } else if (entry === "date-lead" && date) {
+    // The dates open the title line.
+    out.push(new Paragraph({ ...first, children: [run(style, `${date}: `, { bold, color: titleColor }), titleRun] }));
+  } else if (entry === "date-left") {
     // Dates hang in the left column; the title starts at the tab stop.
     out.push(
       new Paragraph({
@@ -347,21 +482,20 @@ function entryHead(style: Style, title: string, subtitle: string | undefined, da
   if (subtitle) {
     out.push(
       new Paragraph({
-        ...entryIndent(style),
+        ...indented(left),
         keepNext: true,
         children: [run(style, subtitle, { color: style.muted, italics: style.italics })],
       }),
     );
   }
   if (entry === "date-below" && date) {
-    out.push(new Paragraph({ ...entryIndent(style), keepNext: true, children: [dateRun(date)] }));
+    out.push(new Paragraph({ ...indented(left), keepNext: true, children: [dateRun(date)] }));
   }
   return out;
 }
 
-function textParagraphs(style: Style, text: string | undefined, extraBullets: string[] = [], indent = true): Paragraph[] {
+function textParagraphs(style: Style, text: string | undefined, extraBullets: string[] = [], base = 0): Paragraph[] {
   const { paragraphs, bullets } = parseDescription(text);
-  const base = indent ? style.dateColumn : 0;
   const out = paragraphs.map(
     (p) => new Paragraph({ spacing: { before: 40 }, ...(base ? { indent: { left: base } } : {}), children: [run(style, p)] }),
   );
@@ -378,9 +512,9 @@ function textParagraphs(style: Style, text: string | undefined, extraBullets: st
   return out;
 }
 
-function mutedLine(style: Style, text: string): Paragraph {
+function mutedLine(style: Style, text: string, left: number): Paragraph {
   return new Paragraph({
-    ...entryIndent(style),
+    ...indented(left),
     spacing: { before: 40 },
     children: [run(style, text, { color: style.muted, scale: 0.93 })],
   });
@@ -389,6 +523,8 @@ function mutedLine(style: Style, text: string): Paragraph {
 function labelled(style: Style, label: string, value: string): Paragraph {
   const bold = style.template.typography.titleWeight >= 600;
   const { skills } = style.template.style;
+  // On a form a skill group or a language is a row like any other.
+  if (style.form && label) return new Paragraph(fieldRow(style, label, [run(style, value)]));
   // "Rows" templates align the values in a second column, like the page does.
   if (skills === "rows" && label) {
     const column = twips(38);
@@ -412,22 +548,28 @@ function sectionBody(cv: CVDocument, style: Style, key: SectionKey): Paragraph[]
   const out: Paragraph[] = [];
 
   switch (key) {
+    case "personalDetails":
+      out.push(...fieldRows(style, personalDetailRows(cv, labels)));
+      break;
     case "summary":
-      out.push(...textParagraphs(style, cv.summary, [], false));
+      out.push(...textParagraphs(style, cv.summary));
       break;
     case "experiences":
       for (const e of cv.experiences) {
         const { title, subtitle } = experienceLines(e, lead);
-        out.push(...entryHead(style, title, subtitle, formatDateRange(e.startDate, e.endDate, e.isCurrent, lang)));
-        out.push(...textParagraphs(style, e.description, e.achievements));
-        if (e.technologies.length) out.push(mutedLine(style, `${labels.technologies}: ${e.technologies.join(", ")}`));
+        const date = formatDateRange(e.startDate, e.endDate, e.isCurrent, lang);
+        const left = entryIndent(style, date);
+        out.push(...entryHead(style, title, subtitle, date));
+        out.push(...textParagraphs(style, e.description, e.achievements, left));
+        if (e.technologies.length) out.push(mutedLine(style, `${labels.technologies}: ${e.technologies.join(", ")}`, left));
       }
       break;
     case "education":
       for (const e of cv.education) {
         const { title, subtitle } = educationLines(e, lead);
-        out.push(...entryHead(style, title, subtitle, formatDateRange(e.startDate, e.endDate, false, lang)));
-        out.push(...textParagraphs(style, e.description, e.achievements));
+        const date = formatDateRange(e.startDate, e.endDate, false, lang);
+        out.push(...entryHead(style, title, subtitle, date));
+        out.push(...textParagraphs(style, e.description, e.achievements, entryIndent(style, date)));
       }
       break;
     case "skills":
@@ -437,16 +579,11 @@ function sectionBody(cv: CVDocument, style: Style, key: SectionKey): Paragraph[]
       break;
     case "projects":
       for (const p of cv.projects) {
-        out.push(
-          ...entryHead(
-            style,
-            p.name,
-            joinParts([p.role, p.url?.replace(/^https?:\/\//i, "")]),
-            formatDateRange(p.startDate, p.endDate, false, lang),
-          ),
-        );
-        out.push(...textParagraphs(style, p.description));
-        if (p.technologies.length) out.push(mutedLine(style, `${labels.technologies}: ${p.technologies.join(", ")}`));
+        const date = formatDateRange(p.startDate, p.endDate, false, lang);
+        const left = entryIndent(style, date);
+        out.push(...entryHead(style, p.name, joinParts([p.role, p.url?.replace(/^https?:\/\//i, "")]), date));
+        out.push(...textParagraphs(style, p.description, [], left));
+        if (p.technologies.length) out.push(mutedLine(style, `${labels.technologies}: ${p.technologies.join(", ")}`, left));
       }
       break;
     case "certifications":
@@ -461,15 +598,16 @@ function sectionBody(cv: CVDocument, style: Style, key: SectionKey): Paragraph[]
       break;
     case "awards":
       for (const a of cv.awards) {
-        out.push(...entryHead(style, a.title, a.issuer, formatPartialDate(a.date, lang)));
-        out.push(...textParagraphs(style, a.description));
+        const date = formatPartialDate(a.date, lang);
+        out.push(...entryHead(style, a.title, a.issuer, date));
+        out.push(...textParagraphs(style, a.description, [], entryIndent(style, date)));
       }
       break;
     case "references":
       for (const r of cv.references) {
         out.push(...entryHead(style, r.name, joinParts([r.position, r.company]), ""));
         const contact = joinParts([r.email, r.phone]);
-        if (contact) out.push(new Paragraph({ ...entryIndent(style), spacing: { before: 40 }, children: [run(style, contact)] }));
+        if (contact) out.push(new Paragraph({ ...indented(entryIndent(style, "")), spacing: { before: 40 }, children: [run(style, contact)] }));
       }
       break;
     case "customSections":
@@ -490,13 +628,18 @@ export function buildDocx(cv: CVDocument, template: CVTemplate = getTemplate(cv.
   const children: Paragraph[] = headerParagraphs(cv, style);
   let index = 0;
 
-  for (const key of getVisibleSections(cv, template)) {
+  // A sheet header has already printed the personal details, under a heading of its own.
+  const inHeader = placeSections(cv, template).header;
+  if (template.style.header === "sheet") index = 1;
+
+  for (const key of getVisibleSections(cv, template).filter((k) => !inHeader.includes(k))) {
     if (key === "customSections") {
       for (const section of cv.customSections.filter((s) => s.items.length > 0)) {
         children.push(heading(style, section.title || labels.sections.customSections, ++index));
         for (const item of section.items) {
-          children.push(...entryHead(style, item.title, item.subtitle, formatPartialDate(item.date, cv.metadata.language)));
-          children.push(...textParagraphs(style, item.description));
+          const date = formatPartialDate(item.date, cv.metadata.language);
+          children.push(...entryHead(style, item.title, item.subtitle, date));
+          children.push(...textParagraphs(style, item.description, [], entryIndent(style, date)));
         }
       }
       continue;

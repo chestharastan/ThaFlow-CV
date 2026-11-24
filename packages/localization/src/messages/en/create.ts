@@ -67,6 +67,8 @@ export const create = {
   "create.contact.locationPlaceholder": "Phnom Penh, Cambodia",
   "create.error.email": "That email address does not look right.",
 
+  "create.details.question": "Add your personal details",
+
   "create.work.question": "Have you worked before?",
   "create.work.yes": "Yes",
   "create.work.no": "Not yet",

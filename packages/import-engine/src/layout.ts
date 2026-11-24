@@ -121,8 +121,25 @@ function toSegments(row: Row): Segment[] {
     previous = item;
   }
   if (current) segments.push(current);
-  return segments.filter((s) => s.text.trim());
+  // A form sets its colons in a column of their own ("Name   :   Sok Dara"), or at the head of the value
+  // ("Name   : Sok Dara"). Either way the colon belongs to the label.
+  const joined: Segment[] = [];
+  for (const segment of segments.filter((s) => s.text.trim())) {
+    const label = joined[joined.length - 1];
+    const colon = label && !/[:：៖]\s*$/.test(label.text) ? LEADING_COLON.exec(segment.text.trim()) : null;
+    if (!label || !colon) {
+      joined.push(segment);
+      continue;
+    }
+    label.text = `${label.text.trimEnd()}:`;
+    if (colon[1]) joined.push({ ...segment, text: colon[1] });
+    else label.end = segment.end;
+  }
+  return joined;
 }
+
+/** A colon standing on its own, or opening a value. */
+const LEADING_COLON = /^[:：៖](?:\s+(\S.*))?$/;
 
 /* ---------- Columns ---------- */
 
@@ -189,8 +206,13 @@ function separatesColumns(rows: Row[], band: { x0: number; x1: number }, body: n
   if (leftRows.length < MIN_ROWS || rightRows.length < MIN_ROWS) return false;
   const share = (texts: string[], test: (text: string) => boolean) => (texts.length ? texts.filter(test).length / texts.length : 0);
 
-  // A margin of dates or section names on either side is one column with labels, not two columns.
+  // Rows with a colon where the band is ("Name  :  Sok Dara") are a form: each label is read with its value.
+  // That holds whatever else stands in either half: a name in capitals, the page's title above the values.
   const both = rows.map((_, i) => i).filter((i) => left[i] && right[i]);
+  const colonAtBand = (i: number) => /[:：៖]$/.test(left[i]!) || /^[:：៖]/.test(right[i]!);
+  if (both.length >= 3 && both.filter(colonAtBand).length / both.length >= 0.6) return false;
+
+  // A margin of dates or section names on either side is one column with labels, not two columns.
   if (both.length >= 3 && share(both.map((i) => left[i]!), isLabel) >= 0.6) return false;
   if (share(rightRows, isLabel) >= 0.6 || share(leftRows, isLabel) >= 0.6) return false;
 
@@ -423,6 +445,7 @@ export function linesFromPages(pages: PageItems[]): LaidOutText {
           ...(loose ? { loose: true } : {}),
           ...(bodyFont !== undefined && first.font !== bodyFont ? { emph: true } : {}),
           ...(bodyFont !== undefined && first.lastFont !== first.font ? { tail: first.lastFont !== bodyFont } : {}),
+          ...(bodyFont !== undefined && first.font ? { face: first.font, endFace: first.lastFont } : {}),
         });
       }
     }

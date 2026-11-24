@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from "react";
 import type { RewriteKind } from "@thaflow/ai-engine";
 import {
+  GENDERS,
+  MARITAL_STATUSES,
   createAward,
   createCertification,
   createCustomSection,
@@ -14,6 +16,7 @@ import {
   createReference,
   createSkillGroup,
   type CVDocument,
+  type PersonalDetailKey,
   type SectionKey,
 } from "@thaflow/cv-core";
 import type { MessageKey } from "@thaflow/localization";
@@ -21,6 +24,7 @@ import { useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
 import { draftSummary } from "@thaflow/rule-engine";
 import { AIAssist } from "./ai-assist";
+import { BirthDateInput, CodedSelect } from "./create/date-input";
 import { DegreeSelect } from "./degree-select";
 import { Button, Card, Field, Select, TagInput, TextArea, TextInput } from "./ui";
 import { useWorkspace } from "./workspace-context";
@@ -159,7 +163,7 @@ const dateRange: FieldDef[] = [
   { key: "endDate", label: "field.endDate", type: "date", hiddenWhen: (i) => Boolean(i.isCurrent) },
 ];
 
-type ListKey = Exclude<SectionKey, "summary" | "skills" | "customSections">;
+type ListKey = Exclude<SectionKey, "personalDetails" | "summary" | "skills" | "customSections">;
 
 const listConfig: Record<ListKey, { fields: FieldDef[]; create(): Item; title(item: Item): string; add: MessageKey }> = {
   experiences: {
@@ -376,6 +380,7 @@ function PersonalForm({ cv }: { cv: CVDocument }) {
         cvLanguage={cv.metadata.language}
         onChange={(key, value) => update((d) => void ((d.personal as Item)[key] = value), `personal.${key}`)}
       />
+      <PersonalDetailsFields cv={cv} />
       <div>
         <p className="mb-1 text-xs font-medium text-ink-soft">{t("field.photo")}</p>
         <div className="flex items-center gap-3">
@@ -416,6 +421,39 @@ function PersonalForm({ cv }: { cv: CVDocument }) {
           )}
         </div>
         <p className="mt-1 text-xs text-muted">{photoError ? <span className="text-danger">{photoError}</span> : t("photo.hint")}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Sex, date and place of birth and the rest: optional, and printed as their own section when filled in. */
+function PersonalDetailsFields({ cv }: { cv: CVDocument }) {
+  const { t } = useApp();
+  const update = useEditor((s) => s.update);
+  const set = (key: PersonalDetailKey, value: string) => update((d) => void (d.personal[key] = value || undefined), `personal.${key}`);
+  const text = (key: PersonalDetailKey, label: MessageKey, placeholder: MessageKey) => (
+    <Field label={t(label)}>
+      {(id) => <TextInput id={id} autoComplete="off" value={cv.personal[key] ?? ""} placeholder={t(placeholder)} onChange={(e) => set(key, e.target.value)} data-testid={`personal-${key}`} />}
+    </Field>
+  );
+  return (
+    <div className="border-t border-line pt-4" role="group" aria-labelledby="personal-details-title" data-testid="personal-details">
+      <h3 id="personal-details-title" className="text-sm font-semibold text-ink">
+        {t("personal.details")}
+      </h3>
+      <p className="mb-3 mt-1 text-xs text-muted">{t("personal.detailsHint")}</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label={t("field.gender")}>
+          {(id) => <CodedSelect id={id} value={cv.personal.gender} codes={GENDERS} label={(code) => t(`gender.${code}`)} onChange={(v) => set("gender", v)} testId="personal-gender" />}
+        </Field>
+        <Field label={t("field.maritalStatus")}>
+          {(id) => <CodedSelect id={id} value={cv.personal.maritalStatus} codes={MARITAL_STATUSES} label={(code) => t(`marital.${code}`)} onChange={(v) => set("maritalStatus", v)} testId="personal-maritalStatus" />}
+        </Field>
+        <BirthDateInput compact className="sm:col-span-2" label={t("field.dateOfBirth")} value={cv.personal.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} testId="personal-birth" />
+        {text("placeOfBirth", "field.placeOfBirth", "placeholder.placeOfBirth")}
+        {text("nationality", "field.nationality", "placeholder.nationality")}
+        {text("height", "field.height", "placeholder.height")}
+        {text("health", "field.health", "placeholder.health")}
       </div>
     </div>
   );
@@ -550,6 +588,8 @@ function CustomSectionsForm({ cv }: { cv: CVDocument }) {
 export function SectionForm({ cv, section }: { cv: CVDocument; section: SectionKey | "personal" }) {
   switch (section) {
     case "personal":
+    // Personal details are edited with the rest of "Personal".
+    case "personalDetails":
       return <PersonalForm cv={cv} />;
     case "summary":
       return <SummaryForm cv={cv} />;

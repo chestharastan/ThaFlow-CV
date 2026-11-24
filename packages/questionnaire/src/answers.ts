@@ -1,4 +1,4 @@
-import { createId, createSkillGroup, defaultSectionOrder, type CVDocument, type CVLanguage, type LanguageSkill } from "@thaflow/cv-core";
+import { PERSONAL_DETAIL_KEYS, createId, createSkillGroup, defaultSectionOrder, type CVDocument, type CVLanguage, type LanguageSkill } from "@thaflow/cv-core";
 import type { QuestionId } from "./questions";
 
 /**
@@ -125,6 +125,9 @@ export function tidyAnswer(cv: CVDocument, id: QuestionId): void {
       cv.personal.email = trimmed(cv.personal.email);
       cv.personal.phone = trimmed(cv.personal.phone);
       cv.personal.location = trimmed(cv.personal.location);
+      break;
+    case "details":
+      for (const key of PERSONAL_DETAIL_KEYS) cv.personal[key] = trimmed(cv.personal[key]);
       break;
     case "about":
       cv.summary = cv.summary.trim();

@@ -42,6 +42,11 @@ async function documentXml(cv: CVDocument, template?: CVTemplate): Promise<strin
 
 const KHMER_FONTS = ["Noto Sans Khmer", "Noto Serif Khmer", "Kantumruy Pro", "Battambang", "Hanuman", "Moul"];
 const KHMER = /[ក-៿]/;
+/** The text of each paragraph, with a tab where the document has one. */
+const paragraphs = (xml: string) =>
+  [...xml.matchAll(/<w:p>(.*?)<\/w:p>/g)].map((p) =>
+    [...p[1]!.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>|<w:tab\/>/g)].map((m) => (m[1] !== undefined ? m[1] : "\t")).join("").replace(/&amp;/g, "&"),
+  );
 /** Each run of the document as [properties xml, text]. */
 const runs = (xml: string) =>
   [...xml.matchAll(/<w:r>(?:<w:rPr>(.*?)<\/w:rPr>)?(.*?)<\/w:r>/g)].map((m) => ({
@@ -214,6 +219,82 @@ describe("DOCX export for every template", () => {
     // A banner template shades its header paragraphs.
     expect(await xml("tonle")).toContain(`w:fill="${getTemplate("tonle").colors.primary.slice(1)}"`);
     expect(await xml("minimal")).not.toContain("<w:shd ");
+  });
+
+  it("sets the standard sheets as rows: a label, a colon and the value on every line", async () => {
+    for (const id of ["sambor", "chaktomuk", "vihear"]) {
+      const lines = paragraphs(await documentXml(fullEnglishCV(), getTemplate(id)));
+      // The page's own title leads; the Khmer-first sheet puts the national motto above it.
+      expect(lines.slice(0, 3).includes("Curriculum Vitae"), id).toBe(true);
+      expect(lines.slice(0, 2), id).toEqual(id === "vihear" ? ["Kingdom of Cambodia", "Nation Religion King"] : expect.not.arrayContaining(["Kingdom of Cambodia"]));
+      for (const row of [
+        "Position\t: Senior Product Manager",
+        "Address\t: Phnom Penh, Cambodia",
+        "Phone\t: +855 12 345 678",
+        "Gender\t: Female",
+        "Date of birth\t: 19 February 1993",
+        "Marital status\t: Single",
+        // Entries, skill groups and languages are rows too: dates or a name where a label would be.
+        "Mar 2021 – Present\t: Senior Product Manager",
+        "2016 – 2018\t: Master of Business Administration",
+        "Product\t: Roadmapping, User research, A/B testing, Analytics",
+        "Khmer\t: Native",
+      ]) {
+        expect(lines, `${id}: ${row}`).toContain(row);
+      }
+      // The name is a row on a sheet, and stands alone above the rows where the template sets it large.
+      expect(lines, id).toContain(id === "chaktomuk" ? "Sophea Chan" : "Name\t: Sophea Chan");
+      // An entry without a date has no row to sit in: it runs full width.
+      expect(lines, id).toContain("Vibol Kim");
+    }
+    // A sheet prints the personal details once, in its first block, under the one heading.
+    const sheet = paragraphs(await documentXml(fullEnglishCV(), getTemplate("vihear")));
+    expect(sheet.filter((line) => line === "Personal details")).toHaveLength(1);
+    expect(sheet.indexOf("Personal details")).toBeLessThan(sheet.indexOf("Name\t: Sophea Chan"));
+    expect(sheet.indexOf("Name\t: Sophea Chan")).toBeLessThan(sheet.indexOf("Gender\t: Female"));
+    expect(sheet.indexOf("Gender\t: Female")).toBeLessThan(sheet.indexOf("Address\t: Phnom Penh, Cambodia"));
+    // In Khmer the labels, the title and the motto are Khmer.
+    const km = paragraphs(await documentXml(fullKhmerCV(), getTemplate("vihear")));
+    expect(km.slice(0, 3)).toEqual(["ព្រះរាជាណាចក្រកម្ពុជា", "ជាតិ សាសនា ព្រះមហាក្សត្រ", "ប្រវត្តិរូបសង្ខេប"]);
+    expect(km).toContain("ភេទ\t: ស្រី");
+    expect(km).toContain("ឈ្មោះ\t: ចាន់ សុភា");
+  });
+
+  it("prints the personal details as a section in every template, and leaves it out when there are none", async () => {
+    const blank = fullEnglishCV();
+    for (const key of ["gender", "dateOfBirth", "placeOfBirth", "nationality", "maritalStatus", "height", "health"] as const) blank.personal[key] = undefined;
+    for (const template of templates) {
+      const lines = paragraphs(await documentXml(fullEnglishCV(), template));
+      // (A numbered template writes "01  Personal details".)
+      const titled = (list: string[]) => list.filter((line) => /^(\d\d\s+)?Personal details$/.test(line));
+      expect(titled(lines), template.id).toHaveLength(1);
+      expect(lines, template.id).toContain("Place of birth\t: Battambang Province");
+      const without = paragraphs(await documentXml(blank, template));
+      expect(without.some((line) => /Gender|Battambang Province/.test(line)), template.id).toBe(false);
+      expect(titled(without).length === 1, template.id).toBe(template.style.header === "sheet");
+    }
+  });
+
+  it("anchors the photo in the corner of a form header and keeps it in the text elsewhere", async () => {
+    for (const template of templates.filter((t) => t.layout.photo !== "none")) {
+      const xml = await documentXml(fullEnglishCV({ photo: TINY_PHOTO }), template);
+      const form = ["form", "lines", "sheet"].includes(template.style.header);
+      expect(xml.includes("<wp:anchor"), template.id).toBe(form);
+      expect(xml.includes("<wp:inline"), template.id).toBe(!form);
+    }
+  });
+
+  it("carries the new heading and date treatments into Word", async () => {
+    const xml = async (id: string) => documentXml(fullEnglishCV(), getTemplate(id));
+    // A plate is a pale shaded bar; a pill a bar in the accent colour with light text.
+    const kravanh = getTemplate("kravanh");
+    expect(await xml("kravanh")).toContain(`w:fill="${resolveAppearance(kravanh, { primaryColor: "", fontFamily: "" }).plate.background.slice(1).toUpperCase()}"`);
+    expect(await xml("sesan")).toContain(`w:fill="${getTemplate("sesan").colors.primary.slice(1).toUpperCase()}"`);
+    // Dates that open the title line.
+    expect(paragraphs(await xml("kravanh"))).toContain("Mar 2021 – Present: Senior Product Manager");
+    expect(paragraphs(await xml("sangke"))).toContain("2016 – 2018: Master of Business Administration");
+    // Page decoration (a tab, dots, a foot band) has no place in a document meant to be edited.
+    expect(await xml("sangke")).not.toContain("<w:shd ");
   });
 
   it("leads entries with the organisation where the template does", async () => {

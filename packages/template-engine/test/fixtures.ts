@@ -18,6 +18,13 @@ export function fullEnglishCV(options: { photo?: string } = {}): CVDocument {
     linkedin: "https://linkedin.com/in/sopheachan",
     github: "https://github.com/sopheachan",
     photo: options.photo,
+    gender: "female",
+    dateOfBirth: "1993-02-19",
+    placeOfBirth: "Battambang Province",
+    nationality: "Cambodian",
+    maritalStatus: "single",
+    height: "1.62 m",
+    health: "Good",
   };
   cv.summary =
     "Product manager with eight years of experience in digital finance and logistics. I lead cross-functional teams from user research to launch, and I make decisions with data. Most recently I grew a mobile banking app to more than 500,000 customers across Cambodia.";
@@ -214,6 +221,13 @@ export function fullKhmerCV(options: { photo?: string } = {}): CVDocument {
     linkedin: "https://linkedin.com/in/sopheachan",
     github: "https://github.com/sopheachan",
     photo: options.photo,
+    gender: "female",
+    dateOfBirth: "1993-02-19",
+    placeOfBirth: "ខេត្តបាត់ដំបង",
+    nationality: "ខ្មែរ",
+    maritalStatus: "single",
+    height: "១,៦២ ម៉ែត្រ",
+    health: "ល្អ",
   };
   cv.summary =
     "អ្នកគ្រប់គ្រងផលិតផលដែលមានបទពិសោធន៍ជាង ៨ ឆ្នាំ ក្នុងវិស័យហិរញ្ញវត្ថុឌីជីថល និងភស្តុភារកម្ម។ មានជំនាញក្នុងការដឹកនាំក្រុមការងារពហុជំនាញ ការស្រាវជ្រាវតម្រូវការអ្នកប្រើប្រាស់ និងការសម្រេចចិត្តផ្អែកលើទិន្នន័យ ដើម្បីបង្កើតផលិតផលដែលងាយស្រួលប្រើ និងផ្តល់តម្លៃដល់អតិថិជន។";

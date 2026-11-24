@@ -12,7 +12,7 @@ import { useApp } from "@/lib/app-context";
 type Filter = "all" | TemplateCategory;
 
 /**
- * One template rendered with the person's own CV. Rendering thirty full A4
+ * One template rendered with the person's own CV. Rendering forty full A4
  * documents at once is heavy, so a card only renders once it nears the viewport.
  */
 const TemplateCard = memo(function TemplateCard(props: { cv: CVDocument; template: CVTemplate; selected: boolean; onSelect(id: string): void }) {

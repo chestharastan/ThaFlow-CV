@@ -7,7 +7,13 @@ type Migration = (doc: Record<string, unknown>) => Record<string, unknown>;
  * time CV_SCHEMA_VERSION is bumped; never mutate old migrations.
  */
 const migrations: Record<number, Migration> = {
-  // 1: (doc) => ({ ...doc, newField: defaultValue }),
+  // v2 added the personal details section. It leads, as it does in a new CV.
+  1: (doc) => {
+    const appearance = doc.appearance as { sectionOrder?: unknown } | undefined;
+    const order = appearance?.sectionOrder;
+    if (!appearance || !Array.isArray(order) || order.includes("personalDetails")) return doc;
+    return { ...doc, appearance: { ...appearance, sectionOrder: ["personalDetails", ...order] } };
+  },
 };
 
 export class CVValidationError extends Error {

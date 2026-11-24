@@ -13,7 +13,24 @@ export const TEMPLATE_CATEGORIES: TemplateCategory[] = ["simple", "modern", "cla
 export type LayoutKind = "single" | "sidebar-left" | "sidebar-right" | "split" | "label";
 /** Where the name sits on sidebar layouts: across both columns, above the main column, or in the sidebar. */
 export type HeaderPlacement = "full" | "main" | "sidebar";
-export type HeaderStyle = "left" | "center" | "split" | "rule" | "boxed" | "monogram" | "banner";
+export type HeaderStyle =
+  | "left"
+  | "center"
+  | "split"
+  | "rule"
+  | "boxed"
+  | "monogram"
+  | "banner"
+  /** Name, address, phone and the rest as "label : value" rows beside the photo, over a rule. */
+  | "form"
+  /** The name over labelled contact lines ("Address: …"), photo at the right, over a rule. */
+  | "lines"
+  /** No name block: identity, personal details and contact form one titled block of rows. */
+  | "sheet"
+  /** The photo over the side column, with the name and contact details beside it. */
+  | "profile"
+  /** A filled card across the top of the page, laid over a filled sidebar. */
+  | "card";
 export type HeadingStyle =
   | "caps"
   | "underline"
@@ -29,20 +46,36 @@ export type HeadingStyle =
   /** A solid band in the accent colour with light text. */
   | "band"
   /** A soft band tinted with the accent colour. */
-  | "tint";
-/** Where an entry's dates go. */
-export type EntryStyle = "date-right" | "date-left" | "date-below" | "timeline";
+  | "tint"
+  /** A pale, opaque bar with dark text: reads the same on white and on a dark sidebar. */
+  | "plate"
+  /** A rounded capsule in the accent colour (white on a dark sidebar). */
+  | "pill";
+/**
+ * Where an entry's dates go. "form" sets every entry as a "dates : details" row,
+ * the way a standard Cambodian CV does; "date-lead" opens the title line with the dates.
+ */
+export type EntryStyle = "date-right" | "date-left" | "date-below" | "timeline" | "form" | "date-lead";
 /** Which line of an experience/education entry is emphasised: the role/degree or the organisation. */
 export type EntryLead = "role" | "org";
-export type SkillStyle = "list" | "rows" | "pills" | "columns";
+export type SkillStyle = "list" | "rows" | "pills" | "columns" | "bullets";
 export type Density = "compact" | "regular" | "airy";
-export type PhotoStyle = "none" | "circle" | "rounded" | "portrait";
+/** "cover" fills the top of the side column edge to edge. */
+export type PhotoStyle = "none" | "circle" | "rounded" | "portrait" | "cover";
+export type PhotoSize = "regular" | "large";
+/** What stands above the header: nothing, the document's title, or the national motto over the title. */
+export type Masthead = "none" | "title" | "national";
+/** How contact details are marked: not at all, with a small icon each, or with their label. */
+export type ContactStyle = "plain" | "icons" | "labels";
 /** Filled areas. "none" means pure text on a white page. */
 export type FillStyle = "none" | "sidebar-tint" | "sidebar-dark" | "banner-tint" | "banner-dark";
 /** Parts of the page that take the accent colour (fills always do). */
 export type AccentTarget = "name" | "headings" | "rules" | "titles" | "markers";
-/** A stripe of the accent colour along one edge of the page. */
-export type EdgeStyle = "none" | "left" | "top";
+/**
+ * Decoration at the page's edges: a stripe of the accent colour along one edge,
+ * a tab above the side column with a band along the foot ("tab"), or columns of dots ("dots").
+ */
+export type EdgeStyle = "none" | "left" | "top" | "tab" | "dots";
 export type RuleWeight = "hair" | "medium" | "heavy";
 export type BulletStyle = "disc" | "dash" | "square";
 export type ContactSeparator = "space" | "dot" | "pipe" | "slash";
@@ -70,11 +103,15 @@ export interface CVTemplate {
     sidebar: boolean;
     /** Shape of the photo slot. A photo is only rendered when the CV has one. */
     photo: PhotoStyle;
+    photoSize: PhotoSize;
+    masthead: Masthead;
     headerPlacement: HeaderPlacement;
     /** Millimetres; sidebar layouts only. */
     sidebarWidth: number;
     /** Hairline between the two columns of an unfilled two-column layout. */
     divider: boolean;
+    /** Sections that go in the side column of a sidebar layout. */
+    sideSections: SectionKey[];
   };
   typography: {
     /** Keys into FONT_STACKS. */
@@ -123,6 +160,7 @@ export interface CVTemplate {
     rules: RuleWeight;
     bullet: BulletStyle;
     contactSeparator: ContactSeparator;
+    contact: ContactStyle;
     /** Italic entry subtitles (Latin only; Khmer is never slanted). */
     subtitleItalic: boolean;
   };
@@ -305,6 +343,7 @@ export const FONT_OPTIONS: { key: FontKey; label: string; docxFont: string; docx
 export const COLOR_PRESETS = [
   "#111111", // black
   "#374151", // graphite
+  "#2b3a55", // slate
   "#1e3a5f", // navy
   "#1d4e89", // steel blue
   "#1d4ed8", // blue
@@ -343,6 +382,9 @@ export const DENSITY: Record<
 
 /* ---------- Registry ---------- */
 
+/** Sections that move into the side column on sidebar templates, unless a template says otherwise. */
+export const SIDEBAR_SECTIONS: SectionKey[] = ["skills", "languages", "certifications"];
+
 const both: CVLanguage[] = ["en", "km"];
 const INK = "#111111";
 
@@ -378,9 +420,12 @@ function define(spec: Spec): CVTemplate {
       columns: sidebar || kind === "split" ? 2 : 1,
       sidebar,
       photo: "none",
+      photoSize: "regular",
+      masthead: "none",
       headerPlacement: sidebar ? "main" : "full",
       sidebarWidth: 58,
       divider: false,
+      sideSections: SIDEBAR_SECTIONS,
       ...spec.layout,
     },
     typography: {
@@ -411,6 +456,7 @@ function define(spec: Spec): CVTemplate {
       rules: "hair",
       bullet: "disc",
       contactSeparator: "space",
+      contact: "plain",
       subtitleItalic: false,
       ...spec.style,
     },
@@ -851,6 +897,268 @@ const designs: CVTemplate[] = [
     colors: { primary: "#3b3632" },
     style: { header: "banner", heading: "caps", entry: "date-below", fill: "banner-tint", contactSeparator: "dot" },
   }),
+  /*
+   * The styles CVs are most often set in here in Cambodia: the standard "label : value" sheet, in
+   * English and in Khmer, and the photo-led designs with a coloured side column. They print the
+   * personal details (sex, date of birth, nationality…) as a section of their own.
+   */
+  define({
+    id: "sambor",
+    name: "Sambor",
+    description: "The standard CV sheet: every line a label and its value, photo at the top right.",
+    category: "classic",
+    layout: { photo: "portrait", masthead: "title" },
+    typography: {
+      bodyFont: "times",
+      baseFontSize: 11,
+      nameSize: 1.08,
+      nameCase: "upper",
+      headingCase: "upper",
+      headingSize: 1.06,
+      titleWeight: 700,
+      dateColumn: 12.5,
+    },
+    colors: { text: "#000000", muted: "#333333", primary: "#000000" },
+    style: { header: "form", heading: "plain", entry: "form", skills: "rows", rules: "heavy", accent: ["headings", "rules"] },
+  }),
+  define({
+    id: "chaktomuk",
+    name: "Chaktomuk",
+    description: "Standard CV sheet with soft blue section bars and the name set large.",
+    category: "classic",
+    layout: { photo: "portrait", masthead: "title" },
+    typography: {
+      bodyFont: "source-serif",
+      baseFontSize: 10.4,
+      nameSize: 1.6,
+      nameCase: "upper",
+      headingCase: "upper",
+      headingSize: 1,
+      titleWeight: 700,
+      dateColumn: 12.5,
+    },
+    colors: { primary: "#1d4e89" },
+    style: { header: "lines", heading: "tint", entry: "form", skills: "rows", rules: "medium", accent: ["headings", "rules"] },
+  }),
+  define({
+    id: "vihear",
+    name: "Vihear",
+    description: "Formal Khmer sheet: national motto, Moul titles on grey bars, label and value rows.",
+    category: "classic",
+    traits: { khmerFirst: true },
+    layout: { photo: "portrait", masthead: "national" },
+    typography: {
+      bodyFont: "battambang",
+      headingFont: "moul",
+      baseFontSize: 10.2,
+      nameSize: 1.05,
+      nameWeight: 700,
+      headingCase: "normal",
+      headingSize: 1,
+      headingWeight: 800,
+      titleWeight: 700,
+      dateColumn: 13,
+    },
+    style: { header: "sheet", heading: "tint", entry: "form", skills: "rows", accent: ["headings"] },
+  }),
+  define({
+    id: "sangke",
+    name: "Sangke",
+    description: "Round photo beside a widely spaced name; summary and skills in a slim left column.",
+    category: "modern",
+    layout: {
+      kind: "sidebar-left",
+      headerPlacement: "full",
+      photo: "circle",
+      photoSize: "large",
+      sidebarWidth: 60,
+      sideSections: ["summary", "personalDetails", "skills", "languages", "certifications"],
+    },
+    typography: {
+      bodyFont: "dm-sans",
+      baseFontSize: 9.6,
+      nameSize: 2.7,
+      nameWeight: 400,
+      nameCase: "upper",
+      nameTracking: 0.16,
+      headingCase: "upper",
+      headingSize: 0.98,
+      headingWeight: 700,
+    },
+    colors: { primary: "#0369a1", text: "#262b33" },
+    style: {
+      header: "profile",
+      heading: "trail",
+      entry: "date-lead",
+      skills: "bullets",
+      contact: "icons",
+      edge: "tab",
+      accent: ["rules", "markers"],
+    },
+  }),
+  define({
+    id: "kravanh",
+    name: "Kravanh",
+    description: "Deep slate side column with a round photo; pale bars carry every section title.",
+    category: "modern",
+    layout: { kind: "sidebar-left", headerPlacement: "main", photo: "circle", photoSize: "large", sidebarWidth: 70 },
+    typography: {
+      bodyFont: "inter",
+      baseFontSize: 9.5,
+      nameSize: 2.5,
+      nameWeight: 700,
+      nameCase: "upper",
+      nameTracking: 0.03,
+      headingCase: "normal",
+      headingSize: 1.2,
+      headingWeight: 600,
+    },
+    colors: { primary: "#2b3a55" },
+    style: {
+      header: "left",
+      heading: "plate",
+      entry: "date-lead",
+      skills: "bullets",
+      contact: "icons",
+      fill: "sidebar-dark",
+      accent: ["name", "headings"],
+    },
+  }),
+  define({
+    id: "kirirom",
+    name: "Kirirom",
+    description: "Khmer-first with a navy side column: Moul titles over rules, labelled contact details.",
+    category: "modern",
+    traits: { khmerFirst: true },
+    layout: { kind: "sidebar-left", headerPlacement: "main", photo: "circle", photoSize: "large", sidebarWidth: 68 },
+    typography: {
+      bodyFont: "noto-khmer",
+      headingFont: "moul",
+      baseFontSize: 9.6,
+      nameSize: 2.2,
+      nameWeight: 800,
+      headingCase: "normal",
+      headingSize: 1.12,
+      headingWeight: 800,
+      titleWeight: 700,
+    },
+    colors: { primary: "#1e3a5f" },
+    style: {
+      header: "left",
+      heading: "underline",
+      entry: "date-right",
+      skills: "bullets",
+      contact: "labels",
+      fill: "sidebar-dark",
+      bullet: "square",
+      accent: ["name", "headings"],
+    },
+  }),
+  define({
+    id: "sesan",
+    name: "Sesan",
+    description: "Teal side column under a grey name card, with rounded pills for section titles.",
+    category: "creative",
+    layout: {
+      kind: "sidebar-left",
+      headerPlacement: "full",
+      photo: "circle",
+      photoSize: "large",
+      sidebarWidth: 72,
+      sideSections: ["personalDetails", "skills", "languages", "certifications"],
+    },
+    typography: {
+      bodyFont: "source-serif",
+      baseFontSize: 9.8,
+      nameSize: 2.3,
+      nameWeight: 700,
+      nameCase: "upper",
+      nameTracking: 0.02,
+      headingCase: "upper",
+      headingSize: 0.9,
+      headingWeight: 700,
+      titleWeight: 700,
+    },
+    colors: { primary: "#155e75" },
+    style: {
+      header: "card",
+      heading: "pill",
+      entry: "date-right",
+      skills: "bullets",
+      contact: "icons",
+      fill: "sidebar-dark",
+      bullet: "square",
+      subtitleItalic: true,
+      accent: ["headings", "markers"],
+    },
+  }),
+  define({
+    id: "srepok",
+    name: "Srepok",
+    description: "Tall colour band with a portrait photo overlapping it; solid bars title each section.",
+    category: "creative",
+    layout: { kind: "sidebar-left", headerPlacement: "full", photo: "portrait", photoSize: "large", sidebarWidth: 64 },
+    typography: {
+      bodyFont: "dm-sans",
+      baseFontSize: 9.6,
+      nameSize: 2.6,
+      nameWeight: 700,
+      nameCase: "upper",
+      nameTracking: 0.01,
+      headingCase: "upper",
+      headingSize: 0.96,
+      headingWeight: 700,
+    },
+    colors: { primary: "#0f766e" },
+    style: {
+      header: "banner",
+      heading: "band",
+      entry: "date-below",
+      skills: "bullets",
+      contact: "icons",
+      fill: "banner-dark",
+      edge: "dots",
+      accent: ["headings", "markers"],
+    },
+  }),
+  define({
+    id: "aoral",
+    name: "Aoral",
+    description: "Photo across the top of a black side column, a bold name and a dated rail.",
+    category: "creative",
+    layout: { kind: "sidebar-left", headerPlacement: "main", photo: "cover", sidebarWidth: 70 },
+    typography: {
+      bodyFont: "inter",
+      headingFont: "grotesk",
+      baseFontSize: 9.5,
+      nameSize: 3.2,
+      nameWeight: 700,
+      nameCase: "upper",
+      nameTracking: -0.01,
+      headingWeight: 700,
+    },
+    colors: { primary: "#111111" },
+    style: {
+      header: "left",
+      heading: "caps",
+      entry: "timeline",
+      skills: "bullets",
+      contact: "icons",
+      fill: "sidebar-dark",
+      bullet: "dash",
+      accent: ["name", "headings"],
+    },
+  }),
+  define({
+    id: "banteay",
+    name: "Banteay",
+    description: "One clean column with a photo; each section title sits in a rounded blue pill.",
+    category: "simple",
+    layout: { photo: "rounded" },
+    typography: { bodyFont: "plex-sans", baseFontSize: 9.9, nameSize: 2.4, nameTracking: -0.015, headingCase: "upper", headingSize: 0.86 },
+    colors: { primary: "#1d4ed8" },
+    style: { header: "left", heading: "pill", entry: "date-right", skills: "rows", contact: "icons", accent: ["name", "markers"] },
+  }),
 ];
 
 /**
@@ -895,7 +1203,8 @@ const FINISHES: Record<string, Finish> = {
 
 /** Gallery order: the strongest and most broadly useful first, plain and colourful designs interleaved. */
 const ORDER = [
-  "minimal", "modern", "graduate", "executive", "kampot", "timeline", "creative", "corporate", "bassac", "margin",
+  "minimal", "sesan", "sambor", "modern", "kravanh", "graduate", "srepok", "executive", "sangke", "kampot",
+  "chaktomuk", "timeline", "kirirom", "creative", "vihear", "corporate", "banteay", "bassac", "aoral", "margin",
   "tonle", "balance", "technical", "bokor", "angkor", "bilingual", "monogram", "bayon", "compact", "index",
   "kulen", "frame", "poster", "ats", "academic", "oudong", "ink", "quiet", "draft", "standard",
 ];
@@ -932,7 +1241,8 @@ export function isFullBleed(template: CVTemplate): boolean {
 
 /** Whether the design carries colour beyond its text: a filled area or an edge stripe. */
 export function isColourful(template: CVTemplate): boolean {
-  return template.style.fill !== "none" || template.style.edge !== "none" || template.style.heading === "band" || template.style.heading === "tint";
+  const { fill, edge, heading } = template.style;
+  return fill !== "none" || edge !== "none" || ["band", "tint", "plate", "pill"].includes(heading);
 }
 
 /**
@@ -944,7 +1254,10 @@ export function templateSignature(t: CVTemplate): string {
   return [
     templateStructure(t),
     l.photo,
+    l.photoSize,
+    l.masthead,
     l.divider ? "divider" : "",
+    s.contact,
     s.headingAlign,
     s.entryLead,
     s.skills,
@@ -1034,5 +1347,7 @@ export function resolveAppearance(
     nameFont: override ?? template.typography.nameFont,
     /** Colours inside the filled sidebar or banner (equal to the page colours when there is no fill). */
     fill: { background: fillBackground, text: fillText, muted: fillMuted, rule: fillRule },
+    /** The pale bar of "plate" headings, and a text colour that reads on it whatever the accent. */
+    plate: { background: mixColor(primary, "#ffffff", 0.2), text: onPrimary === "#ffffff" ? primary : "#111111" },
   };
 }

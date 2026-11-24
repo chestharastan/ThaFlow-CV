@@ -30,6 +30,41 @@ describe("reading order", () => {
     expect(lines.slice(1).map((l) => [l.text, l.right])).toEqual(table);
   });
 
+  it("reads a form row by row: each label with its colon and its value", () => {
+    const form: [string, string][] = [
+      ["Name", "SIM SREYNETH"],
+      ["Current Address", "Group 8, Village 3, Sangkat 1, Sihanoukville"],
+      ["Mobile Number", "+855 12 345 678"],
+      ["Email", "sreyneth@example.com"],
+      ["Apply for", "Sales and Cashier"],
+      ["Sex", "Female"],
+      ["Nationality", "Cambodian"],
+    ];
+    // Three columns on the page: labels, a column of colons, values. A title in capitals stands above the values.
+    const items = [at(0, 230, "CURRICULUM VITAE", 14), ...form.flatMap(([label, value], i) => [at(i + 2, 40, label), at(i + 2, 170, ":"), at(i + 2, 200, value)])];
+    const { lines, uncertain } = linesFromPages([{ width: 595, items }]);
+    expect(lines.map((l) => [l.text, l.right])).toEqual([["CURRICULUM VITAE", undefined], ...form.map(([label, value]) => [`${label}:`, value])]);
+    // A colon in a column of its own is part of the label, not a third piece that makes the order doubtful.
+    expect(uncertain).toBe(false);
+  });
+
+  it("reads a form whose colon is set with the value, and one that carries on into dated rows", () => {
+    const rows: [string, string][] = [
+      ["Name", ": Sok Dara"],
+      ["Position", ": Accountant"],
+      ["Phone", ": +855 12 345 678"],
+      ["Email", ": dara@example.com"],
+      ["Address", ": Phnom Penh, Cambodia"],
+      ["2020 - 2022", ": Accountant at Acme Trading"],
+      ["2018 - 2020", ": Cashier at Mekong Foods"],
+    ];
+    const items = [at(0, 200, "KINGDOM OF CAMBODIA", 11), at(1, 200, "NATION RELIGION KING", 11), ...rows.flatMap(([label, value], i) => [at(i + 3, 40, label), at(i + 3, 190, value)])];
+    const { lines } = linesFromPages([{ width: 595, items }]);
+    expect(lines.slice(2).map((l) => [l.text, l.right])).toEqual(rows.map(([label, value]) => [`${label}:`, value.slice(2)]));
+    const cv = parseCVText(lines.map((l) => (l.right ? `${l.text}\t${l.right}` : l.text)).join("\n"));
+    expect(cv.personal).toMatchObject({ fullName: "Sok Dara", headline: "Accountant", phone: "+855 12 345 678", email: "dara@example.com", location: "Phnom Penh, Cambodia" });
+  });
+
   it("keeps dates set to the right of each entry on the entry's own line", () => {
     const jobs = ["Accountant", "Cashier", "Intern", "Volunteer", "Tutor", "Assistant"];
     const items = jobs.flatMap((job, i) => [at(i * 2, 40, job), at(i * 2, 470, `${2015 + i} - ${2016 + i}`), at(i * 2 + 1, 40, "Acme Trading, Phnom Penh")]);

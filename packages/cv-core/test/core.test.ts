@@ -5,7 +5,9 @@ import {
   createEmptyCV,
   durationInMonths,
   formatDateRange,
+  formatFullDate,
   getTextAtPath,
+  hasPersonalDetails,
   isValidPartialDate,
   migrateCV,
   parseBackup,
@@ -18,7 +20,8 @@ describe("factory + migrations", () => {
   it("creates a CV that passes its own schema", () => {
     const cv = createEmptyCV({ target: "student" });
     expect(migrateCV(cv)).toEqual(cv);
-    expect(cv.appearance.sectionOrder[1]).toBe("education");
+    // Personal details lead, then the order that suits the person: a student's education before their work.
+    expect(cv.appearance.sectionOrder.slice(0, 3)).toEqual(["personalDetails", "summary", "education"]);
     expect([...cv.appearance.sectionOrder].sort()).toEqual([...SECTION_KEYS].sort());
   });
 
@@ -31,8 +34,34 @@ describe("factory + migrations", () => {
     });
     expect(cv.personal.fullName).toBe("");
     expect(cv.experiences).toEqual([]);
-    expect(cv.appearance.sectionOrder[0]).toBe("skills");
+    expect(cv.appearance.sectionOrder.slice(0, 2)).toEqual(["personalDetails", "skills"]);
     expect(cv.appearance.sectionOrder).toHaveLength(SECTION_KEYS.length);
+  });
+
+  it("upgrades a CV saved before personal details existed, keeping its section order", () => {
+    const old = sampleCV();
+    const stored = {
+      ...old,
+      metadata: { ...old.metadata, version: 1 },
+      appearance: { ...old.appearance, sectionOrder: ["education", "experiences", "summary"], hiddenSections: ["summary"] },
+    };
+    const cv = migrateCV(stored);
+    expect(cv.metadata.version).toBe(2);
+    expect(cv.appearance.sectionOrder.slice(0, 4)).toEqual(["personalDetails", "education", "experiences", "summary"]);
+    expect(cv.appearance.hiddenSections).toEqual(["summary"]);
+    expect(cv.personal.fullName).toBe("Sok Dara");
+    expect(hasPersonalDetails(cv.personal)).toBe(false);
+    // Upgrading twice changes nothing.
+    expect(migrateCV(cv)).toEqual(cv);
+  });
+
+  it("knows when a CV carries personal details", () => {
+    const cv = sampleCV();
+    expect(hasPersonalDetails(cv.personal)).toBe(false);
+    cv.personal.nationality = "  ";
+    expect(hasPersonalDetails(cv.personal)).toBe(false);
+    cv.personal.gender = "female";
+    expect(hasPersonalDetails(cv.personal)).toBe(true);
   });
 
   it("rejects garbage and newer schema versions", () => {
@@ -62,6 +91,15 @@ describe("dates", () => {
     expect(isValidPartialDate("2024-13")).toBe(false);
     expect(formatDateRange("2022-01", undefined, true, "en")).toBe("Jan 2022 – Present");
     expect(formatDateRange("2022-01", "2024", false, "km")).toBe("មករា 2022 – 2024");
+  });
+
+  it("formats a whole date, and leaves anything else as written", () => {
+    expect(formatFullDate("2005-02-19", "en")).toBe("19 February 2005");
+    expect(formatFullDate("2005-02-09", "km")).toBe("9 កុម្ភៈ 2005");
+    expect(formatFullDate("2005-02", "en")).toBe("Feb 2005");
+    expect(formatFullDate("2005", "km")).toBe("2005");
+    expect(formatFullDate("19-February-2005", "en")).toBe("19-February-2005");
+    expect(formatFullDate(undefined, "en")).toBe("");
   });
 
   it("computes duration deterministically", () => {

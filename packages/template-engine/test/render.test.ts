@@ -7,6 +7,7 @@ import {
   CVPreview,
   DENSITY,
   FONT_STACKS,
+  contactInHeader,
   contactLines,
   contactRows,
   educationLines,
@@ -14,10 +15,12 @@ import {
   getPageCss,
   getTemplate,
   getVisibleSections,
+  identityRows,
   initialsOf,
   isFullBleed,
   langOf,
   parseDescription,
+  personalDetailRows,
   placeSections,
   printCss,
   templateCss,
@@ -37,6 +40,12 @@ const ENGLISH_CONTENT = [
   "sophea.chan@example.com",
   "+855 12 345 678",
   "linkedin.com/in/sopheachan",
+  "Female",
+  "19 February 1993",
+  "Battambang Province",
+  "Cambodian",
+  "Single",
+  "1.62 m",
   "Product manager with eight years",
   "Tonle Digital",
   "Mar 2021 – Present",
@@ -98,7 +107,7 @@ describe("content", () => {
     for (const template of templates) {
       const html = render(fullEnglishCV(), template);
       for (const text of ENGLISH_CONTENT) expect(html, `${template.id}: ${text}`).toContain(escapeHtml(text));
-      for (const key of ["summary", "experiences", "education", "skills", "projects", "certifications", "languages", "awards", "references"] as const) {
+      for (const key of ["personalDetails", "summary", "experiences", "education", "skills", "projects", "certifications", "languages", "awards", "references"] as const) {
         expect(html, `${template.id}: ${key}`).toContain(`>${labels.sections[key]}<`);
       }
     }
@@ -195,17 +204,24 @@ describe("layout", () => {
     expect(sidebar.twoColumn).toBe(true);
     expect(sidebar.side).toEqual(["skills", "certifications", "languages"]);
     expect(sidebar.main).not.toContain("skills");
-    expect(sidebar.main[0]).toBe("summary");
+    expect(sidebar.main.slice(0, 2)).toEqual(["personalDetails", "summary"]);
 
     const split = placeSections(cv, getTemplate("balance"));
     expect(split.lead).toEqual(["summary"]);
     expect(split.main[0]).toBe("experiences");
-    expect(split.side).toEqual(["skills", "education", "certifications", "languages", "awards"]);
+    expect(split.side).toEqual(["personalDetails", "skills", "education", "certifications", "languages", "awards"]);
+
+    // A template can choose what its side column holds.
+    expect(placeSections(cv, getTemplate("sesan")).side).toEqual(["personalDetails", "skills", "certifications", "languages"]);
+    expect(placeSections(cv, getTemplate("sangke")).side).toEqual(["personalDetails", "summary", "skills", "certifications", "languages"]);
+    expect(placeSections(cv, getTemplate("kirirom")).main[0]).toBe("personalDetails");
 
     // Nothing is lost or duplicated in any layout.
     for (const template of templates) {
       const placed = placeSections(cv, template);
-      expect([...placed.lead, ...placed.main, ...placed.side].sort(), template.id).toEqual([...getVisibleSections(cv, template)].sort());
+      expect([...placed.header, ...placed.lead, ...placed.main, ...placed.side].sort(), template.id).toEqual([...getVisibleSections(cv, template)].sort());
+      // Only a sheet header takes a section into itself, and only the personal details.
+      expect(placed.header, template.id).toEqual(template.style.header === "sheet" ? ["personalDetails"] : []);
     }
   });
 
@@ -231,9 +247,27 @@ describe("layout", () => {
     const cv = fullEnglishCV();
     for (const template of templates) {
       const html = render(cv, template);
-      expect(html.includes("cv-section--contact"), template.id).toBe(template.layout.sidebar);
+      // A profile header keeps them beside the photo even though the page has a side column.
+      expect(contactInHeader(template), template.id).toBe(!template.layout.sidebar || template.style.header === "profile");
+      expect(html.includes("cv-section--contact"), template.id).toBe(!contactInHeader(template));
       expect(html.match(/sophea\.chan@example\.com/g)?.length, template.id).toBe(1);
+      expect(html.match(/\+855 12 345 678/g)?.length, template.id).toBe(1);
     }
+  });
+
+  it("marks contact details with an icon or their label where the template asks", () => {
+    const cv = fullEnglishCV();
+    for (const template of templates) {
+      const html = render(cv, template);
+      const { contact } = template.style;
+      // Icons are drawn inline; nothing is fetched.
+      expect((html.match(/<svg class="cv-icon"/g) ?? []).length, template.id).toBe(contact === "icons" ? 6 : 0);
+      expect(html.includes("cv-contact-label"), template.id).toBe(contact === "labels");
+      expect(html, template.id).not.toMatch(/<(img|use|image)[^>]+(href|src)="https?:/);
+    }
+    const labelled = render(cv, getTemplate("kirirom"));
+    expect(labelled).toContain('<span class="cv-contact-label">Phone</span><span class="cv-contact-value">+855 12 345 678</span>');
+    expect(render(fullKhmerCV(), getTemplate("kirirom"))).toContain('<span class="cv-contact-label">ទូរស័ព្ទ</span>');
   });
 
   it("groups contact details into rows", () => {
@@ -259,6 +293,131 @@ describe("layout", () => {
     expect(initialsOf("")).toBe("");
     expect(render(fullEnglishCV(), getTemplate("monogram"))).toContain(">SC</span>");
     expect(render(createEmptyCV(), getTemplate("monogram"))).not.toContain("cv-monogram");
+  });
+});
+
+describe("personal details", () => {
+  const all = templates;
+
+  it("prints them as a section of rows in every template, in the CV's language", () => {
+    const labels = getCVLabels("en");
+    expect(personalDetailRows(fullEnglishCV(), labels)).toEqual([
+      { key: "gender", label: "Gender", value: "Female" },
+      { key: "dateOfBirth", label: "Date of birth", value: "19 February 1993" },
+      { key: "placeOfBirth", label: "Place of birth", value: "Battambang Province" },
+      { key: "nationality", label: "Nationality", value: "Cambodian" },
+      { key: "maritalStatus", label: "Marital status", value: "Single" },
+      { key: "height", label: "Height", value: "1.62 m" },
+      { key: "health", label: "Health", value: "Good" },
+    ]);
+    expect(personalDetailRows(fullKhmerCV(), getCVLabels("km")).slice(0, 2)).toEqual([
+      { key: "gender", label: "ភេទ", value: "ស្រី" },
+      { key: "dateOfBirth", label: "ថ្ងៃខែឆ្នាំកំណើត", value: "19 កុម្ភៈ 1993" },
+    ]);
+    for (const template of all) {
+      const en = render(fullEnglishCV(), template);
+      expect(en, template.id).toContain('<span class="cv-field-label">Date of birth</span><span class="cv-field-colon">:</span><span class="cv-field-value">19 February 1993</span>');
+      expect(en.match(/>Personal details</g), template.id).toHaveLength(1);
+      const km = render(fullKhmerCV(), template);
+      for (const text of ["ព័ត៌មានផ្ទាល់ខ្លួន", "ស្រី", "នៅលីវ", "19 កុម្ភៈ 1993", "ខេត្តបាត់ដំបង"]) expect(km, `${template.id}: ${text}`).toContain(text);
+    }
+  });
+
+  it("keeps an answer the person worded themselves, and a date they wrote their own way", () => {
+    const cv = fullEnglishCV();
+    cv.personal.gender = "Non-binary";
+    cv.personal.maritalStatus = " MARRIED ";
+    cv.personal.dateOfBirth = "19-February-1993";
+    const rows = personalDetailRows(cv, getCVLabels("en"));
+    expect(rows.find((r) => r.key === "gender")!.value).toBe("Non-binary");
+    expect(rows.find((r) => r.key === "maritalStatus")!.value).toBe("Married");
+    expect(rows.find((r) => r.key === "dateOfBirth")!.value).toBe("19-February-1993");
+  });
+
+  it("is left out when nothing was filled in, and when the person hides it", () => {
+    const blank = fullEnglishCV();
+    for (const key of ["gender", "dateOfBirth", "placeOfBirth", "nationality", "maritalStatus", "height", "health"] as const) blank.personal[key] = undefined;
+    const hidden = fullEnglishCV();
+    hidden.appearance.hiddenSections = ["personalDetails"];
+    for (const template of all) {
+      expect(getVisibleSections(blank, template), template.id).not.toContain("personalDetails");
+      for (const cv of [blank, hidden]) {
+        const html = render(cv, template);
+        expect(html, template.id).not.toContain("Battambang Province");
+        expect(html, template.id).not.toContain(">Gender<");
+        // A sheet's first block still carries the name and the contact details under that title.
+        expect(html.includes(">Personal details<"), template.id).toBe(template.style.header === "sheet");
+        expect(html, template.id).toContain("Sophea Chan");
+      }
+    }
+  });
+});
+
+describe("headers that are a form", () => {
+  const forms = templates.filter((t) => ["form", "lines", "sheet"].includes(t.style.header));
+
+  it("print the name, the position and the contact details as rows, each once", () => {
+    const cv = fullEnglishCV();
+    expect(identityRows(cv, getCVLabels("en")).map((r) => r.key)).toEqual(["name", "position", "address", "phone", "email", "website", "linkedin", "github"]);
+    expect(identityRows(createEmptyCV(), getCVLabels("en"))).toEqual([{ key: "name", label: "Name", value: "" }]);
+    expect(forms.map((t) => t.id).sort()).toEqual(["chaktomuk", "sambor", "vihear"]);
+    for (const template of forms) {
+      const html = render(cv, template);
+      expect(html.match(/<h1 class="cv-name"/g), template.id).toHaveLength(1);
+      expect(html, template.id).toContain('<span class="cv-field-label">Name</span><span class="cv-field-colon">:</span><div class="cv-field-value"><h1 class="cv-name">Sophea Chan</h1></div>');
+      expect(html, template.id).toContain('<span class="cv-field-label">Position</span><span class="cv-field-colon">:</span><span class="cv-field-value">Senior Product Manager</span>');
+      expect(html, template.id).toContain('<span class="cv-field-label">Address</span><span class="cv-field-colon">:</span><span class="cv-field-value">Phnom Penh, Cambodia</span>');
+      // The rows are the header: there is no separate name block or contact line.
+      expect(html, template.id).not.toContain("cv-name-block");
+      expect(html, template.id).not.toContain('class="cv-contact');
+    }
+  });
+
+  it("a sheet folds the personal details into its first block; the others print them as the next section", () => {
+    const cv = fullEnglishCV();
+    const sheet = render(cv, getTemplate("vihear"));
+    const order = ["Name", "Position", "Gender", "Health", "Address", "Phone", "Email"].map((label) => sheet.indexOf(`<span class="cv-field-label">${label}</span>`));
+    expect(order.every((at) => at > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(sheet.match(/class="cv-fields"/g)).toHaveLength(1);
+    for (const id of ["sambor", "chaktomuk"]) {
+      const html = render(cv, getTemplate(id));
+      expect(html.match(/class="cv-fields"/g), id).toHaveLength(2);
+      expect(html.indexOf("</header>"), id).toBeLessThan(html.indexOf('<span class="cv-field-label">Gender</span>'));
+    }
+  });
+
+  it("head the page with its title, and the Khmer-first sheet with the national motto, in the CV's language", () => {
+    for (const template of templates) {
+      const en = render(fullEnglishCV(), template);
+      const km = render(fullKhmerCV(), template);
+      const { masthead } = template.layout;
+      expect(en.includes('<div class="cv-doc-title">Curriculum Vitae</div>'), template.id).toBe(masthead !== "none");
+      expect(km.includes('<div class="cv-doc-title">ប្រវត្តិរូបសង្ខេប</div>'), template.id).toBe(masthead !== "none");
+      expect(en.includes("<span>Kingdom of Cambodia</span><span>Nation Religion King</span>"), template.id).toBe(masthead === "national");
+      expect(km.includes("<span>ព្រះរាជាណាចក្រកម្ពុជា</span><span>ជាតិ សាសនា ព្រះមហាក្សត្រ</span>"), template.id).toBe(masthead === "national");
+    }
+  });
+
+  it("set every dated entry as a row and leave undated ones at full width", () => {
+    const html = render(fullEnglishCV(), getTemplate("sambor"));
+    expect(html).toContain('<div class="cv-entry"><div class="cv-entry-title">Senior Product Manager</div>');
+    // A reference has no date to stand in the label column.
+    expect(html).toContain('<div class="cv-entry cv-entry--undated"><div class="cv-entry-title">Vibol Kim</div>');
+    expect(templateCss).toContain('.cv--entry-form .cv-entry::before { content: ":"; grid-area: colon; }');
+    expect(templateCss).toContain(".cv--entry-form .cv-entry--undated::before { content: none; }");
+  });
+});
+
+describe("skills", () => {
+  it("lists them one to a line where the template asks, and never gives a nameless group a label column", () => {
+    const cv = stressCV();
+    for (const template of templates) {
+      const html = render(cv, template);
+      expect(html, template.id).toContain('<div class="cv-skill-group cv-skill-group--plain">');
+      expect(html.includes('<ul class="cv-skill-items"><li>Skill number 1</li>'), template.id).toBe(["columns", "bullets"].includes(template.style.skills));
+    }
+    expect(templateCss).toContain(".cv--skills-rows .cv-skill-group--plain { display: block; }");
   });
 });
 
@@ -297,7 +456,7 @@ describe("appearance in the rendered CV", () => {
     // Axis values that are the unstyled default of their axis (a tinted banner is styled through
     // .cv--header-banner and the fill colour variables).
     const defaults = new Set([
-      "cv--fill-banner-tint",
+      "cv--fill-banner-tint", "cv--masthead-none", "cv--cstyle-plain",
       "cv--layout-single", "cv--layout-split", "cv--placement-full", "cv--placement-main", "cv--placement-sidebar",
       "cv--one-column", "cv--two-column", "cv--header-left", "cv--header-monogram", "cv--heading-caps", "cv--heading-plain",
       "cv--halign-left", "cv--hcase-normal", "cv--name-normal", "cv--entry-date-right", "cv--skills-list",
@@ -378,6 +537,18 @@ describe("print", () => {
       expect(css, template.id).not.toContain("padding: 0");
       if (template.layout.sidebar) expect(css, template.id).toContain("position: fixed");
     }
+  });
+
+  it("keeps a full-width header and its columns on one sheet, and repeats foot decoration on every sheet", () => {
+    // Under a header that spans the page the columns must not be stretched to a sheet of their own.
+    expect(getPageCss(getTemplate("sesan"))).not.toContain("min-height: 296.5mm");
+    expect(getPageCss(getTemplate("sesan"))).toContain("position: fixed");
+    expect(getPageCss(getTemplate("bokor"))).toContain("min-height: 296.5mm");
+    for (const template of templates) {
+      const fixedFoot = getPageCss(template).includes(`.cv[data-template="${template.id}"]::after { position: fixed; }`);
+      expect(fixedFoot, template.id).toBe(template.style.edge === "tab" || template.style.edge === "dots");
+    }
+    expect(getPageCss(getTemplate("sangke"))).toContain("@page { size: A4; margin: 0; }");
   });
 
   it("emits the page rule only when asked, next to the printed copy", () => {

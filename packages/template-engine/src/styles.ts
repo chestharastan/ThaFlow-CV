@@ -38,6 +38,9 @@ export const templateCss = /* css */ `
   --cv-marker-color: var(--cv-muted);
   --cv-rule-color: var(--cv-rule);
   --cv-rule-w: 0.25mm;
+  /* Rows of "label : value": the label column, and the narrow one that holds the colon. */
+  --cv-label-col: 36mm;
+  --cv-colon-col: 4.6mm;
 }
 .cv *, .cv *::before, .cv *::after { box-sizing: border-box; }
 .cv :where(h1, h2, p, ul) { margin: 0; padding: 0; }
@@ -72,6 +75,25 @@ export const templateCss = /* css */ `
 .cv-contact-sep { display: inline-block; padding: 0 2.2mm; opacity: 0.55; }
 .cv--contact-space .cv-contact-sep { padding: 0 2.4mm; }
 .cv-contact--stacked .cv-contact-item { display: block; }
+.cv-icon {
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+  margin-top: calc((var(--cv-leading) * 1em - 1.15em) / 2);
+  color: var(--cv-marker-color);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cv--cstyle-icons .cv-contact-item { display: inline-flex; align-items: flex-start; gap: 1.8mm; }
+.cv--cstyle-icons .cv-contact--stacked .cv-contact-item { display: flex; }
+.cv--cstyle-icons .cv-contact-line { display: flex; flex-wrap: wrap; gap: 1mm 6mm; }
+.cv--cstyle-icons .cv-contact-sep { display: none; }
+.cv--cstyle-icons .cv-contact-value { min-width: 0; }
+.cv--cstyle-labels .cv-contact-label { display: block; font-weight: var(--cv-title-weight); color: var(--cv-title-color); }
+.cv--cstyle-labels .cv-contact--stacked .cv-contact-item { margin-bottom: 1.8mm; }
 
 .cv-photo { display: block; flex: none; width: 27mm; height: 27mm; object-fit: cover; }
 .cv--photo-circle .cv-photo { border-radius: 50%; }
@@ -116,6 +138,76 @@ export const templateCss = /* css */ `
   letter-spacing: 0.02em;
 }
 
+/* Larger photos, for the designs that are built around one. */
+.cv--photo-large .cv-header-main .cv-photo { width: 38mm; height: 38mm; }
+.cv--photo-large.cv--photo-portrait .cv-header-main .cv-photo { width: 30mm; height: 38mm; }
+
+/* ---------- Masthead: document title, national motto ---------- */
+.cv-masthead { margin-bottom: 5mm; text-align: center; break-inside: avoid; }
+.cv-doc-title {
+  display: inline-block;
+  padding-bottom: 0.5mm;
+  border-bottom: 0.35mm solid currentColor;
+  font-family: var(--cv-font-heading);
+  font-size: 1.34em;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.cv--masthead-title .cv-masthead { margin-bottom: 6mm; }
+.cv--masthead-national .cv-doc-title { font-size: 1.18em; }
+.cv-nation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--cv-font-heading);
+  font-size: 1.08em;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cv-ornament { display: block; width: 30mm; height: 2.5mm; margin: 1.2mm auto 3.4mm; fill: none; stroke: currentColor; stroke-width: 0.7; stroke-linecap: round; }
+.cv-ornament-fill { fill: currentColor; stroke: none; }
+
+/* ---------- Rows: "label : value" ---------- */
+.cv-fields {
+  display: grid;
+  grid-template-columns: var(--cv-label-col) var(--cv-colon-col) minmax(0, 1fr);
+  row-gap: 0.7mm;
+  align-items: baseline;
+}
+.cv-field { display: contents; }
+.cv-field-value { min-width: 0; }
+/* A narrow column gives the labels only the room they need. */
+.cv-sidebar .cv-fields, .cv-col .cv-fields { grid-template-columns: fit-content(48%) var(--cv-colon-col) minmax(0, 1fr); }
+
+/* Headers that are a form. */
+.cv--header-form .cv-header-main, .cv--header-lines .cv-header-main {
+  align-items: flex-start;
+  padding-bottom: 4mm;
+  border-bottom: calc(var(--cv-rule-w) * 1.25) solid var(--cv-rule-color);
+}
+.cv--header-form .cv-fields, .cv--header-lines .cv-fields { flex: 1; }
+.cv--header-form .cv-fields { row-gap: 1.5mm; }
+.cv--header-form .cv-name, .cv--header-sheet .cv-name { line-height: 1.25; }
+.cv--header-lines .cv-header .cv-fields, .cv--header-lines .cv-header .cv-field { display: block; }
+.cv--header-lines .cv-header .cv-field-colon { padding-right: 1.2mm; }
+.cv--header-lines .cv-field--name { margin-bottom: 1.6mm; }
+.cv--header-lines .cv-field--name .cv-field-label, .cv--header-lines .cv-field--name .cv-field-colon { display: none; }
+
+/* Sheet: the title stands alone at the top, the photo in the corner; the rows follow as the first section. */
+.cv--header-sheet .cv-header { position: relative; }
+.cv--header-sheet .cv-header > .cv-photo { position: absolute; top: 0; right: 0; }
+.cv--header-sheet.cv--has-photo .cv-masthead { min-height: 35mm; padding: 0 28mm; }
+
+/* Profile: the photo stands over the side column, the name and the contact details beside it. */
+.cv--header-profile .cv-header-main { gap: 9mm; }
+.cv--header-profile .cv-header-main .cv-photo { order: 0; margin: 0 calc((var(--cv-sidebar-w) - 38mm) / 2); }
+.cv--header-profile .cv-headline { margin-top: 2.2mm; letter-spacing: 0.14em; }
+.cv--header-profile .cv-contact { margin-top: 3.6mm; }
+
 /* ---------- Sections and headings ---------- */
 .cv-section { margin-bottom: var(--cv-gap-section); }
 .cv-section:last-child { margin-bottom: 0; }
@@ -143,6 +235,20 @@ export const templateCss = /* css */ `
 .cv--heading-boxed .cv-heading { display: table; padding: 0.5mm 2.2mm; border: 0.3mm solid var(--cv-heading-color); }
 .cv--heading-band .cv-heading { padding: 1mm 2.6mm; border-radius: 0.9mm; background: var(--cv-primary); color: var(--cv-on-primary); }
 .cv--heading-tint .cv-heading { padding: 1mm 2.6mm; border-radius: 0.9mm; background: color-mix(in srgb, var(--cv-primary) 11%, transparent); color: var(--cv-primary); }
+.cv--heading-plate .cv-heading { margin-bottom: 3mm; padding: 1.3mm 3mm; background: var(--cv-plate-bg); color: var(--cv-plate-text); }
+.cv--heading-pill .cv-heading {
+  display: table;
+  min-width: 38mm;
+  margin-bottom: 3mm;
+  padding: 1.1mm 6mm;
+  border-radius: 10mm;
+  background: var(--cv-primary);
+  color: var(--cv-on-primary);
+  text-align: center;
+}
+/* In an unfilled side column a solid band would shout: the title keeps the colour and a short rule. */
+.cv--heading-band .cv-sidebar .cv-heading { position: relative; padding: 0 0 2.2mm; border-radius: 0; background: none; color: var(--cv-heading-color); }
+.cv--heading-band .cv-sidebar .cv-heading::after { content: ""; position: absolute; left: 0; bottom: 0; width: 9mm; height: 0.45mm; background: currentColor; }
 .cv--heading-label { --cv-heading-color: var(--cv-muted); }
 .cv--heading-label.cv--accent-headings { --cv-heading-color: var(--cv-primary); }
 .cv--heading-center-rule .cv-heading, .cv--heading-trail .cv-heading { display: flex; align-items: center; gap: 3mm; }
@@ -218,6 +324,32 @@ export const templateCss = /* css */ `
 .cv--entry-timeline .cv-entry-date,
 .cv-sidebar .cv-entry-date { padding: 0; text-align: left; white-space: normal; }
 
+/* Form: every entry is a row, the dates where a label would be, then a colon, then the details. */
+.cv--entry-form { --cv-label-col: calc(1em * var(--cv-date-col)); }
+.cv--entry-form .cv-entry {
+  grid-template-columns: var(--cv-label-col) var(--cv-colon-col) minmax(0, 1fr);
+  grid-template-areas: "date colon title" ". . sub" ". . content";
+}
+.cv--entry-form .cv-entry::before { content: ":"; grid-area: colon; }
+.cv--entry-form .cv-entry-date { padding: 0 2mm 0 0; color: inherit; font-size: 1em; text-align: left; white-space: normal; }
+.cv--entry-form .cv-entry--undated { grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "sub" "content"; }
+.cv--entry-form .cv-entry--undated::before { content: none; }
+
+/* Date-lead: the dates open the title line. */
+.cv--entry-date-lead .cv-main .cv-entry {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "date title" "sub sub" "content content";
+  justify-content: start;
+}
+.cv--entry-date-lead .cv-main .cv-entry-date {
+  padding: 0 1.4mm 0 0;
+  color: var(--cv-title-color);
+  font-size: 1em;
+  font-weight: var(--cv-title-weight);
+  text-align: left;
+}
+.cv--entry-date-lead .cv-main .cv-entry-date::after { content: ":"; }
+
 /* Timeline: a rail down the left of each list of entries, a dot per entry, the date on top. */
 .cv--entry-timeline .cv-main .cv-entry {
   position: relative;
@@ -271,6 +403,26 @@ export const templateCss = /* css */ `
   font-size: 0.92em;
 }
 
+/* A group without a name is just its list, whatever the style. */
+.cv--skills-rows .cv-skill-group--plain { display: block; }
+
+.cv--skills-bullets .cv-skill-category { display: block; margin-bottom: 0.4mm; }
+.cv--skills-bullets .cv-skill-colon { display: none; }
+.cv--skills-bullets .cv-skill-items { padding-left: 4.4mm; list-style: disc; }
+.cv--skills-bullets .cv-skill-items li { margin-bottom: 0.5mm; padding-left: 0.4mm; }
+.cv--skills-bullets .cv-skill-items li::marker { color: var(--cv-marker-color); }
+.cv--bullet-dash.cv--skills-bullets .cv-skill-items { list-style-type: "–  "; padding-left: 4.8mm; }
+.cv--bullet-square.cv--skills-bullets .cv-skill-items { list-style-type: square; }
+
+/* On a form, a skill group or a language is a row like any other: its name, a colon, its value. */
+.cv--entry-form.cv--skills-rows .cv-skill-group {
+  grid-template-columns: calc(var(--cv-label-col) + var(--cv-colon-col)) minmax(0, 1fr);
+  column-gap: 0;
+}
+.cv--entry-form.cv--skills-rows .cv-skill-category { display: flex; justify-content: space-between; color: inherit; font-weight: inherit; }
+.cv--entry-form.cv--skills-rows .cv-skill-colon { display: block; flex: none; width: var(--cv-colon-col); }
+.cv--entry-form.cv--skills-rows .cv-skill-group--plain { display: block; }
+
 .cv--skills-columns .cv-skills { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.6mm 6mm; }
 .cv--skills-columns .cv-skill-category { display: block; margin-bottom: 0.5mm; }
 .cv--skills-columns .cv-skill-colon { display: none; }
@@ -287,6 +439,9 @@ export const templateCss = /* css */ `
 /* Narrow columns stack everything. */
 .cv-sidebar .cv-photo { width: 30mm; height: 30mm; margin-bottom: 6mm; }
 .cv--photo-portrait .cv-sidebar .cv-photo { width: 27mm; height: 35mm; }
+.cv--photo-large .cv-sidebar .cv-photo { width: 40mm; height: 40mm; margin: 0 auto 8mm; }
+.cv--photo-large.cv--photo-portrait .cv-sidebar .cv-photo { width: 34mm; height: 43mm; }
+.cv--photo-large.cv--fill-sidebar-dark .cv-sidebar .cv-photo { box-shadow: 0 0 0 0.9mm var(--cv-fill-text); }
 .cv-sidebar .cv-header { margin-bottom: var(--cv-gap-section); }
 .cv-sidebar .cv-contact { margin-top: 0; font-size: 1em; }
 .cv-sidebar .cv-contact-item { margin-bottom: 0.6mm; }
@@ -322,6 +477,36 @@ export const templateCss = /* css */ `
 /* ---------- Colour: edge stripes, tinted pills ---------- */
 .cv--edge-left { border-left: 4.5mm solid var(--cv-primary); }
 .cv--edge-top { border-top: 3.2mm solid var(--cv-primary); }
+/* Tab: a pale tab of the accent above the side column, and a dark band along the foot of the page. */
+.cv--edge-tab { padding-top: calc(var(--cv-pad-y) + 6mm); padding-bottom: calc(var(--cv-pad-y) + 6mm); }
+.cv--edge-tab::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--cv-pad-x);
+  width: var(--cv-sidebar-w);
+  height: 10mm;
+  background: color-mix(in srgb, var(--cv-primary) 26%, var(--cv-bg));
+}
+.cv--edge-tab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 9mm;
+  background: color-mix(in srgb, var(--cv-text) 86%, var(--cv-bg));
+}
+/* Dots: a column down the end of the header band, and a paler one at the foot of the page. */
+.cv--edge-dots .cv-header { position: relative; }
+.cv--edge-dots .cv-header::after, .cv--edge-dots::after {
+  content: "";
+  position: absolute;
+  width: 3.2mm;
+  background: radial-gradient(circle closest-side, var(--cv-dot) 92%, transparent) center top / 3.2mm 5.4mm repeat-y;
+}
+.cv--edge-dots .cv-header::after { top: 5mm; bottom: 5mm; right: 7mm; --cv-dot: color-mix(in srgb, var(--cv-fill-text) 88%, transparent); }
+.cv--edge-dots::after { left: 5.4mm; bottom: 9mm; height: 48.6mm; --cv-dot: color-mix(in srgb, var(--cv-primary) 18%, var(--cv-bg)); }
 .cv--accent-markers .cv-pill { border-color: color-mix(in srgb, var(--cv-primary) 28%, transparent); background: color-mix(in srgb, var(--cv-primary) 8%, transparent); }
 .cv-sidebar .cv-pill { background: transparent; }
 
@@ -356,6 +541,56 @@ export const templateCss = /* css */ `
 .cv--fill-banner-dark .cv-header { --cv-name-color: var(--cv-fill-text); }
 .cv--header-banner .cv-body { padding: calc(var(--cv-pad-y) - 3mm) var(--cv-pad-x) var(--cv-pad-y); }
 
+/* A banner over a side column: the photo stands over that column and overlaps the banner's lower edge. */
+.cv--header-banner.cv--layout-sidebar-left .cv-header { padding-top: 13mm; padding-bottom: 12mm; }
+.cv--header-banner.cv--layout-sidebar-left .cv-header-main { gap: 9mm; }
+.cv--header-banner.cv--layout-sidebar-left .cv-header-main .cv-photo {
+  order: 0;
+  position: relative;
+  z-index: 1;
+  width: 34mm;
+  height: 43mm;
+  margin: 0 calc((var(--cv-sidebar-w) - 34mm) / 2) -22mm;
+  border: 1mm solid var(--cv-bg);
+  border-radius: 1.2mm;
+  box-shadow: 0 0.8mm 2.6mm rgb(0 0 0 / 0.22);
+}
+.cv--header-banner.cv--layout-sidebar-left .cv-headline { font-size: 1.24em; }
+.cv--header-banner.cv--layout-sidebar-left.cv--has-photo .cv-sidebar { padding-top: 10mm; }
+/* The body already keeps the page margin. */
+.cv--header-banner.cv--layout-sidebar-left .cv-main { padding-right: 0; }
+
+/* Pills and plates on a dark side column. */
+.cv--heading-pill.cv--fill-sidebar-dark .cv-sidebar .cv-heading { display: block; background: var(--cv-fill-text); color: var(--cv-fill-bg); }
+
+/* A photo across the top of a filled side column, edge to edge. */
+.cv--photo-cover .cv-sidebar .cv-photo {
+  width: calc(100% + 16mm);
+  height: 70mm;
+  margin: calc(-1 * var(--cv-pad-y)) -8mm 8mm;
+  border-radius: 0;
+  object-position: center 24%;
+}
+
+/* Card: the name on a filled card laid across the top, over the side column's colour. */
+.cv--header-card { background: linear-gradient(to right, var(--cv-fill-bg) var(--cv-sidebar-w), var(--cv-bg) var(--cv-sidebar-w)); }
+.cv--header-card .cv-header {
+  margin: 11mm 7mm 0;
+  padding: 6.4mm 9mm;
+  border: 1.4mm solid var(--cv-bg);
+  background: color-mix(in srgb, var(--cv-text) 52%, var(--cv-bg));
+  color: #ffffff;
+  --cv-name-color: #ffffff;
+  --cv-muted: rgb(255 255 255 / 0.94);
+}
+/* The name starts where the main column's text does. */
+.cv--header-card .cv-header-main { gap: 0; }
+.cv--header-card .cv-header-main .cv-photo { order: 0; width: 36mm; height: 36mm; margin-right: calc(var(--cv-sidebar-w) - 42.4mm); }
+.cv--header-card .cv-headline { font-size: 1.3em; font-style: italic; }
+.cv--header-card .cv-body { min-height: 0; }
+.cv--header-card .cv-sidebar { background: transparent; }
+.cv--header-card .cv-sidebar, .cv--header-card .cv-main { padding-top: 10mm; }
+
 /* ---------- Khmer ---------- */
 .cv:lang(km) { font-size: calc(var(--cv-font-size) * var(--cv-km-scale)); }
 .cv:lang(km), .cv :lang(km) {
@@ -370,6 +605,8 @@ export const templateCss = /* css */ `
 .cv .cv-heading:lang(km) { font-size: calc(1em * max(var(--cv-heading-size), 1.06)); line-height: 1.65; }
 .cv--entry-timeline .cv-main .cv-entry-date:lang(km) { font-size: 0.93em; font-weight: 400; }
 .cv .cv-monogram:lang(km) { font-size: 1.4em; line-height: 1; }
+.cv .cv-doc-title:lang(km), .cv .cv-nation:lang(km) { line-height: 1.7; }
+.cv--header-form .cv-name:lang(km), .cv--header-sheet .cv-name:lang(km), .cv--header-lines .cv-name:lang(km) { line-height: var(--cv-leading-km); }
 `;
 
 const bleedPrint = (template: CVTemplate): string => {
@@ -379,9 +616,10 @@ const bleedPrint = (template: CVTemplate): string => {
     const side = template.layout.kind === "sidebar-right" ? "right" : "left";
     // The strip is fixed, so it repeats on every sheet and always reaches the bottom edge;
     // cloned padding gives each sheet's column its own top and bottom margin.
+    // Under a full-width header the columns start lower down, so they are not stretched to a whole sheet.
+    const body = template.layout.headerPlacement === "full" ? "" : `\n  ${scope} .cv-body { min-height: 296.5mm; }`;
     return `
-  ${scope} { min-height: 0; isolation: isolate; }
-  ${scope} .cv-body { min-height: 296.5mm; }
+  ${scope} { min-height: 0; isolation: isolate; }${body}
   ${scope}::before { content: ""; position: fixed; top: 0; bottom: 0; ${side}: 0; width: var(--cv-sidebar-w); background: var(--cv-fill-bg); z-index: -1; }
   ${scope} .cv-sidebar { background: transparent; }
   ${scope} .cv-sidebar, ${scope} .cv-main { -webkit-box-decoration-break: clone; box-decoration-break: clone; }`;
@@ -389,7 +627,13 @@ const bleedPrint = (template: CVTemplate): string => {
   // Banner: the band stays on the first sheet; cloned padding keeps margins on the following ones.
   return `
   ${scope} { min-height: 0; }
-  ${scope} .cv-body { -webkit-box-decoration-break: clone; box-decoration-break: clone; }`;
+  ${scope} .cv-body { -webkit-box-decoration-break: clone; box-decoration-break: clone; }${footPrint(template)}`;
+};
+
+/** Decoration that belongs to the foot of the sheet, not to the end of the text: it repeats on every sheet. */
+const footPrint = (template: CVTemplate): string => {
+  const { edge } = template.style;
+  return edge === "tab" || edge === "dots" ? `\n  .cv[data-template="${template.id}"]::after { position: fixed; }` : "";
 };
 
 /**
@@ -408,7 +652,7 @@ export function getPageCss(template: CVTemplate): string {
   if (template.style.edge !== "none") {
     // An edge stripe has to reach the paper's edge: no page margin, and the page's own padding (and the
     // stripe) repeated on every sheet.
-    return `@media print {\n  @page { size: A4; margin: 0; }\n  .cv[data-template="${template.id}"] { min-height: 0; -webkit-box-decoration-break: clone; box-decoration-break: clone; }\n}`;
+    return `@media print {\n  @page { size: A4; margin: 0; }\n  .cv[data-template="${template.id}"] { min-height: 0; -webkit-box-decoration-break: clone; box-decoration-break: clone; }${footPrint(template)}\n}`;
   }
   const { padY, padX } = DENSITY[template.style.density];
   return `@media print {

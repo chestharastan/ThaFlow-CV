@@ -66,6 +66,7 @@ export const create: Partial<Record<keyof typeof en, string>> = {
   "create.contact.emailPlaceholder": "dara@example.com",
   "create.contact.phonePlaceholder": "012 345 678",
   "create.contact.locationPlaceholder": "ភ្នំពេញ កម្ពុជា",
+  "create.details.question": "បញ្ចូលព័ត៌មានផ្ទាល់ខ្លួនរបស់អ្នក",
   "create.error.email": "អាសយដ្ឋានអ៊ីមែលនេះហាក់ដូចជាមិនត្រឹមត្រូវទេ។",
 
   "create.work.question": "តើអ្នកធ្លាប់ធ្វើការហើយឬនៅ?",

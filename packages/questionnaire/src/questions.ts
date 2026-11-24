@@ -1,4 +1,4 @@
-import type { CVDocument } from "@thaflow/cv-core";
+import { hasPersonalDetails, type CVDocument } from "@thaflow/cv-core";
 
 /**
  * The whole conversation, in the order it is asked.
@@ -14,6 +14,7 @@ export const QUESTION_IDS = [
   "name",
   "title",
   "contact",
+  "details",
   "work",
   "education",
   "projects",
@@ -85,6 +86,8 @@ export const QUESTIONS: readonly Question[] = [
     applies: always,
     answered: (cv) => filled(cv.personal.email) || filled(cv.personal.phone) || filled(cv.personal.location),
   },
+  // Sex, date and place of birth, nationality, marital status: what a CV in Cambodia usually states. Optional like the rest.
+  { id: "details", phase: "cv", kind: "fields", required: false, applies: always, answered: (cv) => hasPersonalDetails(cv.personal) },
   {
     id: "work",
     phase: "cv",

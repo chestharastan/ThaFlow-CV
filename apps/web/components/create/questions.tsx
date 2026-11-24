@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { createId, type CVDocument, type CVLanguage, type LanguageSkill } from "@thaflow/cv-core";
+import { GENDERS, MARITAL_STATUSES, createId, type CVDocument, type CVLanguage, type LanguageSkill, type PersonalDetailKey } from "@thaflow/cv-core";
 import {
   LANGUAGE_LEVELS,
   canLeave,
@@ -20,7 +20,7 @@ import { draftSummary } from "@thaflow/rule-engine";
 import { Button, Field, Select, TagInput, TextArea, TextInput, cx } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
 import { useEditor } from "@/lib/editor-store";
-import { BOX_HEIGHT, PLACEHOLDER } from "./date-input";
+import { BOX_HEIGHT, BirthDateInput, CodedSelect, PLACEHOLDER } from "./date-input";
 import { Choice, Choices, ErrorLine, Heading, Primary, QuestionForm } from "./frame";
 
 export interface QuestionProps {
@@ -183,6 +183,63 @@ export function ContactQuestion({ cv, onNext }: QuestionProps) {
         </Field>
       </div>
       <Primary>{t(primaryAction(cv, "contact") === "skip" ? "create.skip" : "create.next")}</Primary>
+    </QuestionForm>
+  );
+}
+
+/**
+ * Sex, date and place of birth, nationality and marital status: what a CV in
+ * Cambodia usually states. All optional; whatever is filled in is printed.
+ */
+export function DetailsQuestion({ cv, onNext }: QuestionProps) {
+  const { t } = useApp();
+  const update = useEditor((s) => s.update);
+  const set = (key: PersonalDetailKey, value: string) => update((draft) => void (draft.personal[key] = value || undefined), `create.${key}`);
+  return (
+    <QuestionForm onSubmit={onNext}>
+      <Heading>{t("create.details.question")}</Heading>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t("field.gender")}>
+            {(id) => <CodedSelect id={id} large value={cv.personal.gender} codes={GENDERS} label={(code) => t(`gender.${code}`)} onChange={(v) => set("gender", v)} testId="create-gender" />}
+          </Field>
+          <Field label={t("field.maritalStatus")}>
+            {(id) => (
+              <CodedSelect id={id} large value={cv.personal.maritalStatus} codes={MARITAL_STATUSES} label={(code) => t(`marital.${code}`)} onChange={(v) => set("maritalStatus", v)} testId="create-marital" />
+            )}
+          </Field>
+        </div>
+        <BirthDateInput label={t("field.dateOfBirth")} value={cv.personal.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} testId="create-birth" />
+        <Field label={t("field.placeOfBirth")}>
+          {(id) => (
+            <TextInput
+              id={id}
+              controlSize="lg"
+              autoComplete="off"
+              enterKeyHint="next"
+              value={cv.personal.placeOfBirth ?? ""}
+              placeholder={t("placeholder.placeOfBirth")}
+              onChange={(e) => set("placeOfBirth", e.target.value)}
+              data-testid="create-birthplace"
+            />
+          )}
+        </Field>
+        <Field label={t("field.nationality")}>
+          {(id) => (
+            <TextInput
+              id={id}
+              controlSize="lg"
+              autoComplete="off"
+              enterKeyHint="next"
+              value={cv.personal.nationality ?? ""}
+              placeholder={t("placeholder.nationality")}
+              onChange={(e) => set("nationality", e.target.value)}
+              data-testid="create-nationality"
+            />
+          )}
+        </Field>
+      </div>
+      <Primary>{t(primaryAction(cv, "details") === "skip" ? "create.skip" : "create.next")}</Primary>
     </QuestionForm>
   );
 }

@@ -1,10 +1,24 @@
-import type { CVDocument, CVLanguage, Education, Experience, SectionKey } from "@thaflow/cv-core";
+import {
+  GENDERS,
+  MARITAL_STATUSES,
+  PERSONAL_DETAIL_KEYS,
+  formatFullDate,
+  hasPersonalDetails,
+  type CVDocument,
+  type CVLanguage,
+  type Education,
+  type Experience,
+  type SectionKey,
+} from "@thaflow/cv-core";
+import type { CVLabels, FieldKey } from "@thaflow/localization";
 import type { CVTemplate, EntryLead } from "./templates";
 
 export function isSectionEmpty(cv: CVDocument, key: SectionKey): boolean {
   switch (key) {
     case "summary":
       return cv.summary.trim().length === 0;
+    case "personalDetails":
+      return !hasPersonalDetails(cv.personal);
     case "skills":
       return cv.skills.every((g) => g.skills.length === 0);
     case "customSections":
@@ -27,13 +41,12 @@ export function getVisibleSections(cv: CVDocument, template: CVTemplate): Sectio
   );
 }
 
-/** Sections that move into the sidebar on sidebar templates. */
-export const SIDEBAR_SECTIONS: SectionKey[] = ["skills", "languages", "certifications"];
-
 /** Sections that fill the second column of a "split" template; the summary runs full width above both. */
-export const SPLIT_SIDE_SECTIONS: SectionKey[] = ["education", "skills", "certifications", "languages", "awards"];
+export const SPLIT_SIDE_SECTIONS: SectionKey[] = ["personalDetails", "education", "skills", "certifications", "languages", "awards"];
 
 export interface SectionPlacement {
+  /** Sections the header prints itself ("sheet" headers fold the personal details into their rows). */
+  header: SectionKey[];
   /** Full-width sections above the columns (split layout only). */
   lead: SectionKey[];
   /** The main column, or everything on one-column templates. */
@@ -46,27 +59,36 @@ export interface SectionPlacement {
 
 /** Where each visible section goes for a template's page layout. Order within a column follows the CV. */
 export function placeSections(cv: CVDocument, template: CVTemplate): SectionPlacement {
-  const visible = getVisibleSections(cv, template);
-  const { kind } = template.layout;
+  const all = getVisibleSections(cv, template);
+  const header = all.filter((s) => template.style.header === "sheet" && s === "personalDetails");
+  const visible = all.filter((s) => !header.includes(s));
+  const { kind, sideSections } = template.layout;
   if (kind === "sidebar-left" || kind === "sidebar-right") {
-    // The sidebar always carries the contact block, so it is never empty.
-    const side = visible.filter((s) => SIDEBAR_SECTIONS.includes(s));
-    return { lead: [], main: visible.filter((s) => !side.includes(s)), side, twoColumn: true };
+    // The sidebar always carries the contact block or the photo, so it is never empty.
+    const side = visible.filter((s) => sideSections.includes(s));
+    return { header, lead: [], main: visible.filter((s) => !side.includes(s)), side, twoColumn: true };
   }
   if (kind === "split") {
     const lead = visible.filter((s): s is SectionKey => s === "summary");
     const side = visible.filter((s) => SPLIT_SIDE_SECTIONS.includes(s));
     const main = visible.filter((s) => !lead.includes(s) && !side.includes(s));
-    if (main.length > 0 && side.length > 0) return { lead, main, side, twoColumn: true };
+    if (main.length > 0 && side.length > 0) return { header, lead, main, side, twoColumn: true };
   }
-  return { lead: [], main: visible, side: [], twoColumn: false };
+  return { header, lead: [], main: visible, side: [], twoColumn: false };
 }
 
+/** Whether the header itself carries the contact details. Elsewhere they are a section of the side column. */
+export function contactInHeader(template: CVTemplate): boolean {
+  return !template.layout.sidebar || template.style.header === "profile";
+}
+
+export type ContactKind = "email" | "phone" | "location" | "website" | "linkedin" | "github";
+
 /** Contact lines as plain text. URLs are never rendered as live links from user input. */
-export function contactLines(cv: CVDocument): { kind: string; value: string }[] {
+export function contactLines(cv: CVDocument): { kind: ContactKind; value: string }[] {
   const p = cv.personal;
   const strip = (url: string) => url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
-  const entries: [string, string | undefined][] = [
+  const entries: [ContactKind, string | undefined][] = [
     ["email", p.email],
     ["phone", p.phone],
     ["location", p.location],
@@ -75,17 +97,87 @@ export function contactLines(cv: CVDocument): { kind: string; value: string }[] 
     ["github", p.github && strip(p.github)],
   ];
   return entries
-    .filter((e): e is [string, string] => Boolean(e[1]?.trim()))
+    .filter((e): e is [ContactKind, string] => Boolean(e[1]?.trim()))
     .map(([kind, value]) => ({ kind, value: value.trim() }));
 }
 
-const LINK_KINDS = new Set(["website", "linkedin", "github"]);
+/** The row label of each contact detail. */
+export const CONTACT_FIELD: Record<ContactKind, FieldKey> = {
+  email: "email",
+  phone: "phone",
+  location: "address",
+  website: "website",
+  linkedin: "linkedin",
+  github: "github",
+};
+
+/* ---------- Rows: "label : value" ---------- */
+
+export interface FieldRow {
+  key: FieldKey;
+  label: string;
+  value: string;
+}
+
+const coded = <T extends string>(codes: readonly T[], words: Record<T, string>, value: string): string => {
+  const code = codes.find((c) => c === value.trim().toLowerCase());
+  return code ? words[code] : value.trim();
+};
+
+/**
+ * The personal details that were filled in, as printed: answers stored as a
+ * code ("female", "single") in the CV's language, the date of birth written
+ * out, everything else as the person wrote it. Shared by the HTML and DOCX renderers.
+ */
+export function personalDetailRows(cv: CVDocument, labels: CVLabels): FieldRow[] {
+  const lang = cv.metadata.language;
+  const rows: FieldRow[] = [];
+  for (const key of PERSONAL_DETAIL_KEYS) {
+    const raw = cv.personal[key]?.trim();
+    if (!raw) continue;
+    const value =
+      key === "gender"
+        ? coded(GENDERS, labels.gender, raw)
+        : key === "maritalStatus"
+          ? coded(MARITAL_STATUSES, labels.maritalStatus, raw)
+          : key === "dateOfBirth"
+            ? formatFullDate(raw, lang)
+            : raw;
+    rows.push({ key, label: labels.fields[key], value });
+  }
+  return rows;
+}
+
+/**
+ * Who the person is and how to reach them, as rows, for headers that print
+ * "label : value". The name row is always there; the rest only when filled in.
+ * A "sheet" header also takes the personal details, between identity and contact.
+ */
+export function identityRows(cv: CVDocument, labels: CVLabels, details: FieldRow[] = []): FieldRow[] {
+  const { fullName, headline } = cv.personal;
+  const contact = contactLines(cv);
+  const row = (kind: ContactKind): FieldRow[] =>
+    contact.filter((l) => l.kind === kind).map((l) => ({ key: CONTACT_FIELD[kind], label: labels.fields[CONTACT_FIELD[kind]], value: l.value }));
+  return [
+    { key: "name", label: labels.fields.name, value: fullName },
+    ...(headline?.trim() ? [{ key: "position" as const, label: labels.fields.position, value: headline.trim() }] : []),
+    ...details,
+    ...row("location"),
+    ...row("phone"),
+    ...row("email"),
+    ...row("website"),
+    ...row("linkedin"),
+    ...row("github"),
+  ];
+}
+
+const LINK_KINDS = new Set<ContactKind>(["website", "linkedin", "github"]);
 
 /**
  * Contact details grouped into display rows: how to reach the person, then
  * their links. Up to three details stay on one row.
  */
-export function contactRows(cv: CVDocument): { kind: string; value: string }[][] {
+export function contactRows(cv: CVDocument): { kind: ContactKind; value: string }[][] {
   const lines = contactLines(cv);
   if (lines.length <= 3) return lines.length > 0 ? [lines] : [];
   const direct = lines.filter((l) => !LINK_KINDS.has(l.kind));

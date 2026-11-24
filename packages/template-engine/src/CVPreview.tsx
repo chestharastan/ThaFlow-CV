@@ -4,15 +4,22 @@ import type { CSSProperties, ReactNode } from "react";
 import { formatDateRange, formatPartialDate, type CVDocument, type CVLanguage, type SectionKey } from "@thaflow/cv-core";
 import { getCVLabels, type CVLabels } from "@thaflow/localization";
 import {
+  CONTACT_FIELD,
+  contactInHeader,
   contactLines,
   contactRows,
   educationLines,
   experienceLines,
+  identityRows,
   initialsOf,
   joinParts,
   langOf,
   parseDescription,
+  personalDetailRows,
   placeSections,
+  type ContactKind,
+  type FieldRow,
+  type SectionPlacement,
 } from "./sections";
 import { getPageCss } from "./styles";
 import { DENSITY, FONT_STACKS, getTemplate, isFullBleed, resolveAppearance, type CVTemplate } from "./templates";
@@ -34,6 +41,7 @@ interface Ctx {
   template: CVTemplate;
   labels: CVLabels;
   lang: CVLanguage;
+  placed: SectionPlacement;
 }
 
 const SEPARATORS = { space: " ", dot: "·", pipe: "|", slash: "/" } as const;
@@ -76,7 +84,7 @@ function Description({ ctx, text, extraBullets = [] }: { ctx: Ctx; text?: string
 function Entry(props: { ctx: Ctx; title: string; subtitle?: string; date?: string; meta?: string | null; children?: ReactNode }) {
   const { ctx, title, subtitle, date, meta, children } = props;
   return (
-    <div className="cv-entry">
+    <div className={date ? "cv-entry" : "cv-entry cv-entry--undated"}>
       <div className="cv-entry-title" {...lg(ctx, title)}>
         {title}
       </div>
@@ -103,7 +111,7 @@ function SkillGroup({ ctx, category, items, plain }: { ctx: Ctx; category?: stri
   const style = plain ? "list" : ctx.template.style.skills;
   const text = items.join(", ");
   return (
-    <div className="cv-skill-group">
+    <div className={category ? "cv-skill-group" : "cv-skill-group cv-skill-group--plain"}>
       {category ? (
         <span className="cv-skill-category" {...lg(ctx, category)}>
           {category}
@@ -118,7 +126,7 @@ function SkillGroup({ ctx, category, items, plain }: { ctx: Ctx; category?: stri
             </span>
           ))}
         </span>
-      ) : style === "columns" ? (
+      ) : style === "columns" || style === "bullets" ? (
         <ul className="cv-skill-items">
           {items.map((item, i) => (
             <li key={i} {...lg(ctx, item)}>
@@ -135,10 +143,40 @@ function SkillGroup({ ctx, category, items, plain }: { ctx: Ctx; category?: stri
   );
 }
 
+/**
+ * Rows of "label : value": the personal details, and the whole header of the
+ * templates that print one as a form. The name row holds the page's <h1>.
+ */
+function Fields({ ctx, rows }: { ctx: Ctx; rows: FieldRow[] }) {
+  return (
+    <div className="cv-fields">
+      {rows.map((row, i) => (
+        <div key={`${row.key}-${i}`} className={`cv-field cv-field--${row.key}`}>
+          <span className="cv-field-label">{row.label}</span>
+          <span className="cv-field-colon">:</span>
+          {row.key === "name" ? (
+            <div className="cv-field-value">
+              <h1 className="cv-name" {...lg(ctx, row.value)}>
+                {row.value || " "}
+              </h1>
+            </div>
+          ) : (
+            <span className="cv-field-value" {...lg(ctx, row.value)}>
+              {row.value}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SectionBody({ ctx, section }: { ctx: Ctx; section: SectionKey }) {
   const { cv, labels, template, lang } = ctx;
   const lead = template.style.entryLead;
   switch (section) {
+    case "personalDetails":
+      return <Fields ctx={ctx} rows={personalDetailRows(cv, labels)} />;
     case "summary":
       return <Description ctx={ctx} text={cv.summary} />;
     case "experiences":
@@ -317,6 +355,65 @@ function Photo({ src }: { src: string | null }) {
   return <img className="cv-photo" src={src} alt="" />;
 }
 
+/** Small line icons for contact details, drawn here so nothing is fetched. Links share one icon. */
+const ICON_PATHS: Record<ContactKind, ReactNode> = {
+  phone: (
+    <>
+      <rect x="7" y="2.5" width="10" height="19" rx="2.2" />
+      <path d="M11 18.2h2" />
+    </>
+  ),
+  email: (
+    <>
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      <path d="m4 7.6 8 6 8-6" />
+    </>
+  ),
+  location: (
+    <>
+      <path d="M12 21.2s-6.6-5.7-6.6-11.1a6.6 6.6 0 0 1 13.2 0c0 5.4-6.6 11.1-6.6 11.1z" />
+      <circle cx="12" cy="10" r="2.4" />
+    </>
+  ),
+  website: (
+    <>
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="M3.4 12h17.2M12 3.4c2.6 2.4 3.9 5.3 3.9 8.6s-1.3 6.2-3.9 8.6c-2.6-2.4-3.9-5.3-3.9-8.6s1.3-6.2 3.9-8.6z" />
+    </>
+  ),
+  linkedin: null,
+  github: null,
+};
+const LINK_ICON = (
+  <>
+    <path d="M10.2 13.8a4 4 0 0 0 5.7 0l3.2-3.2a4 4 0 0 0-5.7-5.7l-1.2 1.2" />
+    <path d="M13.8 10.2a4 4 0 0 0-5.7 0l-3.2 3.2a4 4 0 0 0 5.7 5.7l1.2-1.2" />
+  </>
+);
+
+function ContactItem({ ctx, kind, value }: { ctx: Ctx; kind: ContactKind; value: string }) {
+  const mark = ctx.template.style.contact;
+  if (mark === "plain") {
+    return (
+      <span className="cv-contact-item" {...lg(ctx, value)}>
+        {value}
+      </span>
+    );
+  }
+  return (
+    <span className="cv-contact-item" {...lg(ctx, value)}>
+      {mark === "icons" ? (
+        <svg className="cv-icon" viewBox="0 0 24 24" aria-hidden="true">
+          {ICON_PATHS[kind] ?? LINK_ICON}
+        </svg>
+      ) : (
+        <span className="cv-contact-label">{ctx.labels.fields[CONTACT_FIELD[kind]]}</span>
+      )}
+      <span className="cv-contact-value">{value}</span>
+    </span>
+  );
+}
+
 function Contact({ ctx, stacked }: { ctx: Ctx; stacked?: boolean }) {
   const lines = contactLines(ctx.cv);
   if (lines.length === 0) return null;
@@ -324,9 +421,7 @@ function Contact({ ctx, stacked }: { ctx: Ctx; stacked?: boolean }) {
     return (
       <div className={`cv-contact cv-contact--stacked${lines.length > 3 ? " cv-contact--many" : ""}`}>
         {lines.map((l) => (
-          <span key={l.kind} className="cv-contact-item" {...lg(ctx, l.value)}>
-            {l.value}
-          </span>
+          <ContactItem key={l.kind} ctx={ctx} kind={l.kind} value={l.value} />
         ))}
       </div>
     );
@@ -338,9 +433,7 @@ function Contact({ ctx, stacked }: { ctx: Ctx; stacked?: boolean }) {
         <div key={r} className="cv-contact-line">
           {row.map((l, i) => (
             <span key={l.kind} className="cv-contact-part">
-              <span className="cv-contact-item" {...lg(ctx, l.value)}>
-                {l.value}
-              </span>
+              <ContactItem ctx={ctx} kind={l.kind} value={l.value} />
               {i < row.length - 1 ? <span className="cv-contact-sep">{separator}</span> : null}
             </span>
           ))}
@@ -350,7 +443,7 @@ function Contact({ ctx, stacked }: { ctx: Ctx; stacked?: boolean }) {
   );
 }
 
-function NameBlock({ ctx }: { ctx: Ctx }) {
+function NameBlock({ ctx, children }: { ctx: Ctx; children?: ReactNode }) {
   const { fullName, headline } = ctx.cv.personal;
   return (
     <div className="cv-name-block">
@@ -362,15 +455,70 @@ function NameBlock({ ctx }: { ctx: Ctx }) {
           {headline}
         </div>
       ) : null}
+      {children}
+    </div>
+  );
+}
+
+/** What stands above the header on formal sheets: the national motto, and the document's title. */
+function Masthead({ ctx }: { ctx: Ctx }) {
+  const { masthead } = ctx.template.layout;
+  if (masthead === "none") return null;
+  const { nation, documentTitle } = ctx.labels;
+  return (
+    <div className="cv-masthead">
+      {masthead === "national" ? (
+        <>
+          <div className="cv-nation">
+            <span>{nation[0]}</span>
+            <span>{nation[1]}</span>
+          </div>
+          <svg className="cv-ornament" viewBox="0 0 120 10" aria-hidden="true">
+            <path d="M6 5h38M76 5h38" />
+            <path className="cv-ornament-fill" d="M60 1 64 5 60 9 56 5zM50.5 5l2.5-2 2.5 2-2.5 2zM64.5 5l2.5-2 2.5 2-2.5 2z" />
+          </svg>
+        </>
+      ) : null}
+      <div className="cv-doc-title">{documentTitle}</div>
     </div>
   );
 }
 
 function Header({ ctx, photo, contact }: { ctx: Ctx; photo: string | null; contact: boolean }) {
-  const { header } = ctx.template.style;
-  const initials = header === "monogram" ? initialsOf(ctx.cv.personal.fullName) : "";
+  const { cv, labels, template, placed } = ctx;
+  const { header } = template.style;
+
+  // The headers that are a form: the name, the position and the contact details are rows.
+  if (header === "form" || header === "lines" || header === "sheet") {
+    const details = placed.header.includes("personalDetails") ? personalDetailRows(cv, labels) : [];
+    const rows = <Fields ctx={ctx} rows={identityRows(cv, labels, details)} />;
+    return (
+      <header className="cv-header">
+        <Masthead ctx={ctx} />
+        {header === "sheet" ? (
+          <>
+            <Photo src={photo} />
+            <section className="cv-section cv-section--personalDetails">
+              <Heading ctx={ctx}>{labels.sections.personalDetails}</Heading>
+              <div className="cv-section-body">{rows}</div>
+            </section>
+          </>
+        ) : (
+          <div className="cv-header-main">
+            <Photo src={photo} />
+            {rows}
+          </div>
+        )}
+      </header>
+    );
+  }
+
+  const initials = header === "monogram" ? initialsOf(cv.personal.fullName) : "";
+  // A profile header keeps the contact details beside the photo, under the name.
+  const inside = contact && header === "profile";
   return (
     <header className="cv-header">
+      <Masthead ctx={ctx} />
       <div className="cv-header-main">
         {initials ? (
           <span className="cv-monogram" aria-hidden="true" {...lg(ctx, initials)}>
@@ -378,9 +526,9 @@ function Header({ ctx, photo, contact }: { ctx: Ctx; photo: string | null; conta
           </span>
         ) : null}
         <Photo src={photo} />
-        <NameBlock ctx={ctx} />
+        <NameBlock ctx={ctx}>{inside ? <Contact ctx={ctx} /> : null}</NameBlock>
       </div>
-      {contact ? <Contact ctx={ctx} stacked={header === "split"} /> : null}
+      {contact && !inside ? <Contact ctx={ctx} stacked={header === "split"} /> : null}
     </header>
   );
 }
@@ -397,12 +545,13 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
   const template = templateProp ?? getTemplate(cv.appearance.templateId);
   const look = resolveAppearance(template, cv.appearance);
   const lang = cv.metadata.language;
-  const ctx: Ctx = { cv, template, labels: getCVLabels(lang), lang };
-  const { layout, typography: type, style: design, colors } = template;
   const placed = placeSections(cv, template);
+  const ctx: Ctx = { cv, template, labels: getCVLabels(lang), lang, placed };
+  const { layout, typography: type, style: design, colors } = template;
   const density = DENSITY[design.density];
   const photo = photoSource(cv, template);
   const photoInSidebar = layout.sidebar && layout.headerPlacement !== "full";
+  const headerContact = contactInHeader(template);
 
   const style = {
     "--cv-primary": look.primary,
@@ -415,6 +564,8 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
     "--cv-fill-text": look.fill.text,
     "--cv-fill-muted": look.fill.muted,
     "--cv-fill-rule": look.fill.rule,
+    "--cv-plate-bg": look.plate.background,
+    "--cv-plate-text": look.plate.text,
     "--cv-font-body": FONT_STACKS[look.bodyFont],
     "--cv-font-heading": FONT_STACKS[look.headingFont],
     "--cv-font-name": FONT_STACKS[look.nameFont],
@@ -452,7 +603,10 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
     `cv--skills-${design.skills}`,
     `cv--density-${design.density}`,
     `cv--photo-${layout.photo}`,
+    layout.photoSize === "large" ? "cv--photo-large" : "",
     photo ? "cv--has-photo" : "",
+    `cv--masthead-${layout.masthead}`,
+    `cv--cstyle-${design.contact}`,
     `cv--fill-${design.fill}`,
     `cv--edge-${design.edge}`,
     isFullBleed(template) ? "cv--bleed" : "cv--flow",
@@ -471,12 +625,12 @@ export function CVPreview({ cv, template: templateProp, className, pageStyle }: 
     const { headerPlacement } = layout;
     content = (
       <>
-        {headerPlacement === "full" ? <Header ctx={ctx} photo={photo} contact={false} /> : null}
+        {headerPlacement === "full" ? <Header ctx={ctx} photo={photo} contact={headerContact} /> : null}
         <div className="cv-body">
           <aside className="cv-sidebar">
             {photoInSidebar ? <Photo src={photo} /> : null}
             {headerPlacement === "sidebar" ? <Header ctx={ctx} photo={null} contact={false} /> : null}
-            {contactLines(cv).length > 0 ? (
+            {!headerContact && contactLines(cv).length > 0 ? (
               <section className="cv-section cv-section--contact">
                 <Heading ctx={ctx}>{ctx.labels.contact}</Heading>
                 <div className="cv-section-body">

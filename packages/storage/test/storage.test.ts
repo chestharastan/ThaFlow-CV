@@ -34,6 +34,24 @@ describe("CVStore", () => {
     expect(await store.listCVs()).toHaveLength(1);
   });
 
+  it("brings a CV and its saved versions up to date when they were stored by an earlier version", async () => {
+    // As the app stored it before personal details existed: schema v1, no such section in the order.
+    const old = sampleCV();
+    const v1 = { ...old, metadata: { ...old.metadata, version: 1 }, appearance: { ...old.appearance, sectionOrder: old.appearance.sectionOrder.filter((key) => key !== "personalDetails") } };
+    await store.db.cvs.put(v1 as never);
+    await store.db.revisions.put({ id: "r1", cvId: old.id, createdAt: "2026-01-01T00:00:00.000Z", snapshot: v1 as never });
+
+    const cv = await store.getCV(old.id);
+    expect(cv!.metadata.version).toBe(2);
+    expect(cv!.appearance.sectionOrder[0]).toBe("personalDetails");
+    expect(cv!.appearance.sectionOrder.slice(1)).toEqual(v1.appearance.sectionOrder);
+    expect((await store.listCVs())[0]!.appearance.sectionOrder[0]).toBe("personalDetails");
+    const [revision] = await store.listRevisions(old.id);
+    expect(revision!.snapshot.metadata.version).toBe(2);
+    expect(revision!.snapshot.appearance.sectionOrder[0]).toBe("personalDetails");
+    expect(revision!.snapshot.personal.fullName).toBe("Sok Dara");
+  });
+
   it("prunes old revisions", async () => {
     const cv = await store.saveCV(sampleCV());
     for (let i = 0; i < MAX_REVISIONS_PER_CV + 3; i++) await store.addRevision(cv, `r${i}`);
