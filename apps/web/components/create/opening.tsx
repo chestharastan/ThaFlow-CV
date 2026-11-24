@@ -7,6 +7,7 @@ import type { MessageKey } from "@thaflow/localization";
 import { answerOpening, type OpeningQuestionId } from "@thaflow/questionnaire";
 import { useApp } from "@/lib/app-context";
 import { ocrOptions } from "@/lib/ocr";
+import { clearPendingImport, peekPendingImport } from "@/lib/pending-import";
 import { Choice, Choices, ErrorLine, Heading, Primary, QuestionForm } from "./frame";
 
 /** Why the opening could not go on. Import codes come from the import engine; the rest are ours. */
@@ -105,8 +106,19 @@ export function SourceQuestion({
       const code = error instanceof Error && error.name === "ImportError" ? (error as Error & { code?: ImportErrorCode }).code : undefined;
       next = { phase: "idle", failure: code ?? "corrupt" };
     }
-    if (mine === run.current) onState(next);
+    if (mine === run.current) {
+      clearPendingImport(file);
+      onState(next);
+    }
   };
+
+  // A file chosen on the dashboard is read as soon as this screen opens.
+  useEffect(() => {
+    const file = peekPendingImport();
+    if (file && state.phase === "idle") void read(file);
+    // Only on opening: later picks go through the file input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const answer = (choice: "file" | "type") => {
     const outcome = answerOpening("source", choice);

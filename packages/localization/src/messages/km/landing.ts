@@ -2,13 +2,7 @@ import type { landing as en } from "../en/landing";
 
 export const landing: Partial<Record<keyof typeof en, string>> = {
   "landing.headline": "ប្រវត្តិរូបរបស់អ្នក រួចរាល់ក្នុងប៉ុន្មាននាទី។",
-  "landing.sub": "ឆ្លើយសំណួរមួយចំនួន ជ្រើសរើសគំរូ រួចទាញយកជា PDF ឬ Word។",
-  "landing.create": "បង្កើតប្រវត្តិរូប",
-  "landing.facts": "ឥតគិតថ្លៃ · មិនចាំបាច់មានគណនី · រក្សាទុកលើឧបករណ៍របស់អ្នក",
-  "landing.yours": "ប្រវត្តិរូបរបស់អ្នក",
-  "landing.edited": "កែសម្រួល {date}",
   "landing.untitled": "ប្រវត្តិរូបគ្មានចំណងជើង",
-  "landing.open": "បើក",
   "landing.duplicate": "ចម្លង",
   "landing.copy": "ច្បាប់ចម្លង",
   "landing.backup": "បម្រុងទុក",

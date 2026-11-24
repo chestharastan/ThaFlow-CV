@@ -22,7 +22,8 @@ In their words (lightly trimmed):
 
 | Route | Screen | What it is |
 | --- | --- | --- |
-| `/` | Landing | One or two sentences on what this does, and one button: **Create CV**. If CVs already exist on this device, a plain text list of them underneath. |
+| `/` | Product page | What it does and why, a demo, the parts and where they run, a check of this device, the limits. Every button leads to the dashboard. (This replaced the one-sentence landing; see "A product page, and a dashboard like ThaOCR's" below.) |
+| `/dashboard/` | Dashboard | New CV, My CVs, Templates, Settings and Help in a sidebar; a drop zone to start new or from a file; recent CVs. |
 | `/create/` | Questions | One question per screen, a box (or a few closely related boxes) to answer, **Next**. First: "Do you already have a CV?" → if yes, "use it?" → choose a PDF/Word file (read on the device) or type instead. Then the same questions for everyone, pre-filled when a file was read. |
 | `/templates/?id=<cvId>` | Choose a template | 40 templates, each rendered with this person's own answers. Pick one, continue. |
 | `/editor/?id=<cvId>` | Your CV | The finished CV: preview, download (PDF / Word), and edit anything. |
@@ -30,7 +31,9 @@ In their words (lightly trimmed):
 
 Navigation contract (all client-side, static export, trailing slashes):
 
-- Landing → `/create/`.
+- Product page → `/dashboard/`. **New CV** there creates the CV and goes straight to its first question;
+  a dropped, chosen, photographed or pasted file opens `/create/` at the file screen, already reading it.
+- `/create/` opened directly asks "Do you already have a CV?" first.
 - `/create/` runs the opening questions with no CV yet, creates the CV in IndexedDB, then continues at
   `/create/?id=<cvId>&q=<questionId>`. Every question is a URL, so the browser Back button goes to the
   previous question and a reload resumes where the person was.
@@ -38,6 +41,30 @@ Navigation contract (all client-side, static export, trailing slashes):
 - Confirming a template → `/editor/?id=<cvId>`. The editor's "Template" action links back to
   `/templates/?id=<cvId>`.
 - An unknown or missing id shows a short not-found message with a link home. Never a blank page.
+
+## A product page, and a dashboard like ThaOCR's
+
+> Later still, after seeing the plain start page and ThaOCR's Scan screen, in the owner's words (lightly
+> trimmed): *"When the user goes to it, show what it can do, like a landing website. Make it for normal,
+> non-technical users: what it can do, why it is useful, and why they can do it here. List all the models
+> and the limitations, what their device can handle, and a demo. It also has a Create CV button that goes
+> to the dashboard page. For the dashboard page, make it like that OCR one."*
+
+That replaces the one-screen start page and, outside the focused screens, the "no sidebar, no chips" rule:
+
+- **`/` is the product page.** Plain words for people who are not technical: what it does, three steps,
+  a working demo (the real renderer, nothing saved), why make it here, every part that does the work with
+  where it runs and what it downloads, a live check of what this device can do, what does not work well
+  yet, and questions. The sizes, times and verdicts come from the code (the model files, the device
+  assessment in `lib/device.ts`), never from copy that can drift.
+- **`/dashboard/` is the app's home, in ThaOCR's layout:** a sidebar that collapses (a menu on phones), the
+  privacy line at its foot, chips for this device, a dashed drop zone with one black button (**New CV**),
+  and a table of recent CVs with a thumbnail, status, completeness and date. Help repeats the product
+  page's facts inside the app.
+- **The question flow, the template chooser and the editor stay as they were:** one thing at a time, no
+  sidebar. Their logo leads back to the dashboard.
+- Honesty over reassurance. The device check says "maybe" and "no" when that is the answer, reading times
+  are labelled as estimates, and the AI row says which model the optional server runs.
 
 ## The CVs people expect here
 

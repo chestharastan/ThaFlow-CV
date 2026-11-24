@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { SUPPORTED_LANGUAGES } from "@thaflow/localization";
-import { AppHeader } from "@/components/app-header";
-import { ArrowLeft } from "@/components/icons";
+import { DashboardShell, PageHeader } from "@/components/dashboard/shell";
 import { Button, Card, Field, Select, TextInput, cx } from "@/components/ui";
 import { DEFAULT_AI_ENDPOINT, localProvider, useAI } from "@/lib/ai";
 import { getStore, useApp } from "@/lib/app-context";
@@ -72,16 +70,10 @@ export default function SettingsPage() {
   const { mode, cloudConsent } = settings.ai;
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <AppHeader />
-      <main className="mx-auto w-full max-w-xl flex-1 px-5 pb-16 pt-4 sm:pt-8">
-        <Link href="/" className="-ml-2 inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-sm text-muted transition-colors hover:text-ink">
-          <ArrowLeft />
-          {t("settings.back")}
-        </Link>
-        <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-[-0.025em] sm:text-[32px]">{t("settings.title")}</h1>
-
-        <div className="mt-6 space-y-4">
+    <DashboardShell>
+      <PageHeader title={t("settings.title")} sub={t("settings.sub")} />
+      <div className="max-w-2xl">
+        <div className="space-y-4">
           <Group title={t("settings.uiLanguage")}>
             <Field label={t("settings.uiLanguage")} hint={t("settings.uiLanguageHint")}>
               {(id) => (
@@ -194,7 +186,7 @@ export default function SettingsPage() {
             )}
           </Group>
         </div>
-      </main>
-    </div>
+      </div>
+    </DashboardShell>
   );
 }

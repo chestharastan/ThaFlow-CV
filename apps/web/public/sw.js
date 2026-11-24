@@ -1,8 +1,8 @@
 /* ThaFlow CV service worker: after the first visit the whole app works offline.
    Only same-origin GET requests are cached. CV data lives in IndexedDB and never passes through here,
    and cross-origin requests (model downloads, the optional cloud AI endpoint) are never intercepted. */
-const CACHE = "thaflow-cv-v5";
-const PAGES = ["/", "/create/", "/templates/", "/editor/", "/settings/"];
+const CACHE = "thaflow-cv-v6";
+const PAGES = ["/", "/dashboard/", "/dashboard/cvs/", "/dashboard/templates/", "/dashboard/help/", "/create/", "/templates/", "/editor/", "/settings/"];
 const EXTRA = ["/manifest.webmanifest", "/icon.svg", "/pdf.worker.min.mjs"];
 const MAX_ASSETS = 300;
 

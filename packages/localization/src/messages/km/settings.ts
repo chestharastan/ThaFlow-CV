@@ -2,6 +2,7 @@ import type { settings as en } from "../en/settings";
 
 export const settings: Partial<Record<keyof typeof en, string>> = {
   "settings.title": "ការកំណត់",
+  "settings.sub": "ភាសា AI ស្រេចចិត្ត និងទិន្នន័យដែលរក្សាទុកនៅលើឧបករណ៍នេះ។",
   "settings.back": "ថយក្រោយ",
   "settings.uiLanguage": "ភាសាកម្មវិធី",
   "settings.uiLanguageHint": "ប្រវត្តិរូបនីមួយៗមានភាសារៀងខ្លួន ដែលជ្រើសរើសពេលបង្កើត។",

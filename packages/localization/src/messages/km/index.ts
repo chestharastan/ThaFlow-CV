@@ -4,6 +4,8 @@ import { create } from "./create";
 import { gallery } from "./gallery";
 import { editor } from "./editor";
 import { settings } from "./settings";
+import { home } from "./home";
+import { dashboard } from "./dashboard";
 
 /** Khmer catalog. Missing keys fall back to English at runtime. */
 export const km = {
@@ -13,4 +15,6 @@ export const km = {
   ...gallery,
   ...editor,
   ...settings,
+  ...home,
+  ...dashboard,
 };

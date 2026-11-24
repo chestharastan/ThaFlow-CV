@@ -32,13 +32,13 @@ export function LanguageToggle({ className }: { className?: string }) {
 }
 
 /**
- * The one header used on every screen: logo on the left (links home), optional
+ * The header of the focused screens (questions, template chooser): logo on the left (back to the dashboard), optional
  * content in the middle, actions on the right. No background, no border.
  */
 export function AppHeader({ center, children, className }: { center?: ReactNode; children?: ReactNode; className?: string }) {
   return (
     <header className={cx("flex h-14 shrink-0 items-center gap-3 px-4 sm:px-6", className)}>
-      <Link href="/" className="rounded-md py-1" aria-label="ThaFlow CV">
+      <Link href="/dashboard/" className="rounded-md py-1" aria-label="ThaFlow CV">
         <Logo />
       </Link>
       <div className="min-w-0 flex-1">{center}</div>

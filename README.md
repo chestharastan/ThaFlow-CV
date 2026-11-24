@@ -37,11 +37,15 @@ The optional cloud AI server is separate: see [`apps/ai-server/README.md`](apps/
 
 | Route | Screen |
 | --- | --- |
-| `/` | What this does, and **Create CV**. CVs already on this device are listed underneath. |
-| `/create/` | One question per screen. First: "Do you already have a CV?" If yes, a PDF, a Word file, a scan or a photo can be read on the device to fill in the answers; otherwise, or if they prefer, they type. |
+| `/` | The product page, for someone who has never used it: what it does and why it helps, a working demo, every part that does the work and where it runs, a live check of what *this* device can do, what does not work well yet, and questions. Every button leads to the dashboard. |
+| `/dashboard/` | The app's home, laid out like ThaOCR: a sidebar (New CV, My CVs, Templates, Settings, Help), this device's chips, a drop zone (**New CV**, choose a file, camera on phones, drag or paste), and the most recent CVs with status, completeness and date. |
+| `/dashboard/cvs/` | Every CV on this device; restore a backup, back up all; open, go through the questions, duplicate, back up or delete each. |
+| `/dashboard/templates/` | All 40 designs shown with a sample CV, in English or Khmer; **Use this template** starts a CV with it. |
+| `/dashboard/help/` | The device check, the parts and where they run, the limits and the questions from the product page. |
+| `/create/` | One question per screen. From the dashboard it starts at the CV's language (or reads the file that was dropped). Opened directly, it first asks "Do you already have a CV?". |
 | `/templates/?id=` | 40 templates, each rendered with the person's own answers. |
 | `/editor/?id=` | The finished CV: preview, download (PDF, Word, backup file), and edit anything. |
-| `/settings/` | Interface language, optional AI, local data. |
+| `/settings/` | Interface language, optional AI, local data (inside the dashboard). |
 
 The look and the reasoning behind it are in [`docs/design.md`](docs/design.md). The checks the product
 must pass are in [`docs/acceptance.md`](docs/acceptance.md).

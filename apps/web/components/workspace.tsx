@@ -221,7 +221,7 @@ export function Workspace() {
         <AppHeader />
         <main className="mx-auto w-full max-w-xl flex-1 px-5 pt-[14vh]" data-testid="editor-not-found">
           <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em]">{t("editor.notFound")}</h1>
-          <Link href="/" className="mt-5 inline-block text-[15px] text-ink underline underline-offset-4">
+          <Link href="/dashboard/cvs/" className="mt-5 inline-block text-[15px] text-ink underline underline-offset-4">
             {t("nav.home")}
           </Link>
         </main>
@@ -243,7 +243,7 @@ export function Workspace() {
     <WorkspaceContext.Provider value={workspace}>
       <div className="no-print flex h-dvh flex-col">
         <header className="flex h-14 shrink-0 items-center gap-1.5 border-b border-line px-3 sm:gap-2 sm:px-5">
-          <Link href="/" className="shrink-0 rounded-lg" aria-label={t("nav.home")}>
+          <Link href="/dashboard/cvs/" className="shrink-0 rounded-lg" aria-label={t("nav.home")}>
             <LogoMark className="h-8 w-8" />
           </Link>
           <input

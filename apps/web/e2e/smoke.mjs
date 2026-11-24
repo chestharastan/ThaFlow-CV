@@ -1,5 +1,5 @@
 // End-to-end smoke test against the static build (run `pnpm build` first, then `pnpm e2e`).
-// Walks the product the way a person does: landing → questions → choose a template → finished CV,
+// Walks the product the way a person does: product page → dashboard → questions → choose a template → finished CV,
 // then checks the promises the product makes: works without AI, survives a reload, exports,
 // reads an existing CV on the device, Khmer, offline, no network unless cloud AI is enabled, and deletion.
 import { createServer } from "node:http";
@@ -123,17 +123,53 @@ async function answerQuestions({ khmer = false } = {}) {
 }
 
 try {
-  // --- Landing: says what it does, one way forward ---
+  // --- Product page: what it does, a working demo, what runs where, a check of this device ---
   await page.goto(`${origin}/`);
   await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
-  assert.equal(await id("landing-cv").count(), 0);
+  assert.equal((await id("landing-create").textContent()).trim(), "Create my CV");
+  assert.equal(await id("models").locator("li").count(), 8, "every part that does the work is listed");
+  assert.ok((await id("models").innerText()).includes("19.1 MB, downloaded once"), "model sizes come from the real files");
+  assert.equal(await id("limits").locator("li").count(), 8);
+  assert.equal(await id("faq").locator("details").count(), 6);
+  await id("device-check").waitFor();
+  assert.equal(await id("device-check").locator("li").count(), 9);
+  for (const capability of ["write", "khmer", "pdf", "word", "readFile", "readPicture", "space"]) {
+    assert.equal(await id(`device-${capability}`).getAttribute("data-verdict"), "yes", `this browser should manage: ${capability}`);
+  }
+  assert.equal(await id("device-ai").getAttribute("data-verdict"), "off");
+  assert.match(await id("device-chips").innerText(), /Photo reader: 24 MB, one-time download/);
+  // The demo is the real renderer: what is typed and chosen shows at once, and nothing is saved.
+  await id("demo-name").fill("Chan Sreyneth");
+  await id("demo-template-sambor").click();
+  await id("demo-preview").locator('[data-template="sambor"]').waitFor();
+  assert.equal(await id("demo-preview").locator(".cv-name").textContent(), "Chan Sreyneth");
+  await id("demo-lang-km").click();
+  await id("demo-preview").locator(".cv-doc-title", { hasText: "ប្រវត្តិរូបសង្ខេប" }).waitFor();
+  await id("demo-template-sesan").click();
+  await id("demo-preview").locator('[data-template="sesan"]').waitFor();
   await shot("landing");
+  step("the product page explains itself, checks this device and has a working demo");
+
+  // --- Dashboard: the app's home, like ThaOCR's ---
   await id("landing-create").click();
+  await page.waitForURL(/\/dashboard\/$/);
+  await id("dashboard-drop").waitFor();
+  await id("device-chips").waitFor();
+  assert.equal(await id("cv-row").count(), 0, "the demo saved nothing");
+  assert.equal(await id("nav-new").getAttribute("aria-current"), "page");
+  await shot("dashboard");
+  await id("nav-help").click();
+  await id("device-check").waitFor();
+  assert.equal(await id("models").locator("li").count(), 8);
+  await id("sidebar-toggle").click();
+  await id("nav-new").click();
+  await id("dashboard-drop").waitFor();
+  assert.equal(await id("nav-new").getAttribute("aria-label"), "New CV", "a collapsed sidebar still names its links");
+  await id("sidebar-toggle").click();
+  step("the dashboard shows this device, the ways to start, Help, and a collapsible sidebar");
 
   // --- Questions: new person, no AI ---
-  await page.getByRole("heading", { name: "Do you already have a CV?" }).waitFor();
-  await shot("question-start");
-  await id("create-start-no").click();
+  await id("dashboard-new").click();
   await id("create-language-en").click();
   await id("create-name").waitFor();
   assert.equal(await id("create-next").isDisabled(), true, "name is required");
@@ -252,11 +288,17 @@ try {
 
   // --- Existing CV: read a Word file and a PDF on the device ---
   // The third file is the standard sheet printed above: its name is set in capitals, and its details are rows.
+  // The Word file is dropped in from the dashboard; the PDFs come through the question "Do you already have a CV?".
   for (const [kind, file] of [["Word", docxPath], ["PDF", pdfPath], ["PDF of a standard sheet", sheetPdfPath]]) {
-    await page.goto(`${origin}/create/`);
-    await id("create-start-yes").click();
-    await id("create-source-private").waitFor(); // the one line that says the file stays on the device
-    await id("create-file-input").setInputFiles(file);
+    if (kind === "Word") {
+      await page.goto(`${origin}/dashboard/`);
+      await id("dashboard-file-input").setInputFiles(file);
+    } else {
+      await page.goto(`${origin}/create/`);
+      await id("create-start-yes").click();
+      await id("create-source-private").waitFor(); // the one line that says the file stays on the device
+      await id("create-file-input").setInputFiles(file);
+    }
     await id("create-found").waitFor({ timeout: 30000 });
     assert.match(await id("create-found-name").textContent(), /Sok Dara/i, `${kind}: name not recognised`);
     await next();
@@ -362,32 +404,56 @@ try {
   await page.emulateMedia({ media: null });
   step("a Khmer CV renders with Khmer labels, dates and a bundled Khmer font");
 
-  // --- Landing with saved CVs; Khmer interface ---
+  // --- Templates in the dashboard: browse all forty, start a CV with the one chosen ---
+  await page.goto(`${origin}/dashboard/templates/`);
+  assert.equal(await id("template-grid").locator('[data-testid^="template-"]').count(), 40);
+  await id("template-vihear").click();
+  assert.equal((await id("templates-selected").textContent()).trim(), "Vihear");
+  await id("templates-use").click();
+  await id("create-language-en").click();
+  await id("create-name").fill("Kim Chanliza");
+  await next();
+  await id("create-title").waitFor();
+  step("the template browser starts a new CV with the design chosen");
+
+  // --- Dashboard with saved CVs; Khmer interface ---
   await page.goto(`${origin}/`);
-  await id("landing-cv").first().waitFor();
-  assert.ok((await id("landing-cv").count()) >= 4);
-  await page.getByRole("button", { name: "ខ្មែរ" }).click();
+  await page.waitForFunction(() => document.querySelector('[data-testid="landing-create"]')?.textContent?.trim() === "Open my CVs");
+  await page.getByRole("button", { name: "ខ្មែរ" }).first().click();
   await page.getByRole("heading", { name: "ប្រវត្តិរូបរបស់អ្នក រួចរាល់ក្នុងប៉ុន្មាននាទី។" }).waitFor();
   await shot("landing-km");
-  await page.getByRole("button", { name: "EN" }).click();
+  await page.getByRole("button", { name: "EN" }).first().click();
   await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
-  step("saved CVs are listed; the interface switches between English and Khmer");
+  await page.goto(`${origin}/dashboard/cvs/`);
+  await id("cv-row").first().waitFor();
+  const before = await id("cv-row").count();
+  assert.ok(before >= 5);
+  await page.waitForFunction((n) => document.querySelector('[data-testid="nav-cvs-count"]')?.textContent === String(n), before);
+  assert.match(await id("cv-table").innerText(), /Kim Chanliza\s+Vihear/, "the CV started from the template browser kept its design");
+  await shot("dashboard-cvs");
+  step("saved CVs are listed with their status; the interface switches between English and Khmer");
 
-  // --- Backup restore and delete one ---
-  const before = await id("landing-cv").count();
-  await id("landing-restore-input").setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
+  // --- Backup restore, duplicate, delete ---
+  await id("cvs-restore-input").setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
   await page.getByText("Restored 1 CV(s).").waitFor();
-  assert.equal(await id("landing-cv").count(), before + 1);
-  await id("landing-restore-input").setInputFiles({ name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"hello":1}') });
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid="cv-row"]').length === n, before + 1);
+  await page.waitForFunction((n) => document.querySelector('[data-testid="nav-cvs-count"]')?.textContent === String(n), before + 1);
+  await id("cvs-restore-input").setInputFiles({ name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"hello":1}') });
   await page.getByText("not a ThaFlow CV backup").waitFor();
-  await id("landing-cv-delete").first().click();
-  await id("landing-cv-delete-confirm").click();
-  await page.waitForFunction((n) => document.querySelectorAll('[data-testid="landing-cv"]').length === n, before);
-  step("a backup restores; invalid files are rejected; a CV can be deleted");
+  await id("cv-menu").first().click();
+  await id("cv-duplicate").click();
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid="cv-row"]').length === n, before + 2);
+  for (const remaining of [before + 1, before]) {
+    await id("cv-menu").first().click();
+    await id("cv-delete").click();
+    await id("cv-delete-confirm").click();
+    await page.waitForFunction((n) => document.querySelectorAll('[data-testid="cv-row"]').length === n, remaining);
+  }
+  step("a backup restores; invalid files are rejected; a CV can be duplicated and deleted");
 
   // --- Offline ---
   await page.evaluate(() => navigator.serviceWorker.ready);
-  await page.reload();
+  await page.goto(`${origin}/`);
   await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
   await page.goto(cvUrl);
   await preview.getByText("Sok Dara").first().waitFor();
@@ -397,7 +463,9 @@ try {
   await id("gallery-not-found").waitFor();
   await context.setOffline(true);
   await page.goto(`${origin}/`);
-  await id("landing-cv").first().waitFor();
+  await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
+  await page.goto(`${origin}/dashboard/cvs/`);
+  await id("cv-row").first().waitFor();
   await page.goto(cvUrl);
   await preview.getByText("Sok Dara").first().waitFor();
   await page.getByLabel("Location", { exact: true }).first().fill("Siem Reap");
@@ -405,7 +473,7 @@ try {
   await page.goto(`${origin}/create/`);
   await id("create-start-no").waitFor();
   await context.setOffline(false);
-  step("landing, questions and editing work offline");
+  step("the product page, the dashboard, questions and editing work offline");
 
   // --- Pictures, scans and Khmer PDFs: read on the device by ThaOCR's models ---
   // The models are not part of this repository. Point THAFLOW_OCR_MODELS at a folder holding them
@@ -458,19 +526,30 @@ try {
   await id("clear-data").click();
   await id("confirm-clear").click();
   await page.getByText("All local data was deleted.").waitFor();
-  await page.goto(`${origin}/`);
-  await page.getByRole("heading", { name: "Your CV, ready in minutes." }).waitFor();
-  assert.equal(await id("landing-cv").count(), 0);
+  await page.goto(`${origin}/dashboard/cvs/`);
+  await id("cvs-empty").waitFor();
+  assert.equal(await id("cv-row").count(), 0);
   step("all local data can be deleted");
 
   // --- Phone ---
-  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const mobile = await phone.newPage();
   const noOverflow = async (where) => assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `horizontal scroll on phone: ${where}`);
   await mobile.goto(`${origin}/`);
-  await noOverflow("landing");
+  await noOverflow("product page");
+  await mobile.screenshot({ path: join(shots, "mobile-landing.png") });
   await mobile.getByTestId("landing-create").click();
-  await mobile.getByTestId("create-start-no").click();
+  await mobile.getByTestId("dashboard-drop").waitFor();
+  await noOverflow("dashboard");
+  assert.equal(await mobile.getByTestId("sidebar").isVisible(), false, "a phone has no room for the sidebar");
+  await mobile.getByTestId("menu-open").click();
+  const menu = mobile.getByRole("dialog");
+  await menu.getByTestId("nav-templates").waitFor();
+  await mobile.screenshot({ path: join(shots, "mobile-menu.png") });
+  await menu.getByTestId("nav-new").click();
+  await menu.waitFor({ state: "detached" });
+  await mobile.getByTestId("dashboard-camera").waitFor(); // a phone can photograph a printed CV
+  await mobile.getByTestId("dashboard-new").click();
   await mobile.getByTestId("create-language-en").click();
   await mobile.getByTestId("create-name").fill("Mobile User");
   await noOverflow("question");
@@ -496,7 +575,7 @@ try {
   await mobile.getByTestId("view-edit").click();
   await mobile.getByLabel("Full name", { exact: true }).waitFor();
   await noOverflow("editor edit");
-  step("phone: questions (first-job-seeker path), templates and editor fit with no horizontal scroll");
+  step("phone: product page, dashboard and its menu, questions (first-job-seeker path), templates and editor fit with no horizontal scroll");
 
   const unexpected = external.filter((u) => !u.startsWith(`http://127.0.0.1:${aiPort}`) && !u.startsWith(modelBase));
   assert.deepEqual(unexpected, [], "unexpected cross-origin requests");

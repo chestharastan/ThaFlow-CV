@@ -9,7 +9,7 @@ import type { OcrOptions, OcrProgress, OrtModule } from "@thaflow/import-engine"
 
 const ORT_PATH = process.env.NEXT_PUBLIC_ORT_PATH ?? "/ort/";
 /** Operators can serve the models themselves by setting this to a folder that mirrors ThaOCR's layout. */
-const MODEL_BASE = process.env.NEXT_PUBLIC_THAFLOW_OCR_MODELS || undefined;
+export const MODEL_BASE = process.env.NEXT_PUBLIC_THAFLOW_OCR_MODELS || undefined;
 
 interface OrtRuntime extends OrtModule {
   env: { wasm: { wasmPaths?: string; numThreads?: number; proxy?: boolean } };

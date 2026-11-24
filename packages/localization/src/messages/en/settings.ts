@@ -1,5 +1,6 @@
 export const settings = {
   "settings.title": "Settings",
+  "settings.sub": "Language, optional AI, and the data kept on this device.",
   "settings.back": "Back",
   "settings.uiLanguage": "App language",
   "settings.uiLanguageHint": "Each CV has its own language, chosen when you create it.",

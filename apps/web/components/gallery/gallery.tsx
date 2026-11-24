@@ -37,7 +37,7 @@ export function Gallery() {
         <AppHeader />
         <main className="mx-auto w-full max-w-xl flex-1 px-5 pt-[14vh]" data-testid="gallery-not-found">
           <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em]">{t("gallery.notFound")}</h1>
-          <Link href="/" className="mt-5 inline-block text-[15px] text-ink underline underline-offset-4">
+          <Link href="/dashboard/" className="mt-5 inline-block text-[15px] text-ink underline underline-offset-4">
             {t("gallery.home")}
           </Link>
         </main>

@@ -1,12 +1,6 @@
 export const landing = {
   "landing.headline": "Your CV, ready in minutes.",
-  "landing.sub": "Answer a few questions, choose a template, and download it as PDF or Word.",
-  "landing.create": "Create CV",
-  "landing.facts": "Free · No account · Stays on your device",
-  "landing.yours": "Your CVs",
-  "landing.edited": "Edited {date}",
   "landing.untitled": "Untitled CV",
-  "landing.open": "Open",
   "landing.duplicate": "Duplicate",
   "landing.copy": "copy",
   "landing.backup": "Back up",

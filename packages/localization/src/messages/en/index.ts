@@ -4,6 +4,8 @@ import { create } from "./create";
 import { gallery } from "./gallery";
 import { editor } from "./editor";
 import { settings } from "./settings";
+import { home } from "./home";
+import { dashboard } from "./dashboard";
 
 /** English is the source catalog: its keys define MessageKey. One module per area of the UI. */
 export const en = {
@@ -13,4 +15,6 @@ export const en = {
   ...gallery,
   ...editor,
   ...settings,
+  ...home,
+  ...dashboard,
 } as const;

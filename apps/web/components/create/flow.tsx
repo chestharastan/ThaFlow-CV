@@ -222,7 +222,7 @@ function NotFound() {
     <Frame screenKey="not-found">
       <div data-testid="create-not-found">
         <Heading>{t("create.notFound")}</Heading>
-        <Link href="/" className="text-lg text-ink underline underline-offset-4 hover:text-ink-soft" data-testid="create-home-link">
+        <Link href="/dashboard/" className="text-lg text-ink underline underline-offset-4 hover:text-ink-soft" data-testid="create-home-link">
           {t("create.home")}
         </Link>
       </div>
