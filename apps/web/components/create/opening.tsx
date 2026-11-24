@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { CVDocument } from "@thaflow/cv-core";
 import type { ImportErrorCode, ImportResult, OcrProgress } from "@thaflow/import-engine";
 import type { MessageKey } from "@thaflow/localization";
@@ -26,6 +26,9 @@ const loadEngine = () => import("@thaflow/import-engine");
 
 // Pictures too: a photo of a printed CV, a screenshot, or a scan. They are read on the device like the rest.
 const ACCEPT = ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*,.heic,.heif,.tif,.tiff";
+
+/** True when what is being dragged over the page is a file from the device, not text or a link. */
+const carriesFile = (event: DragEvent) => event.dataTransfer?.types.includes("Files") ?? false;
 
 /** What the reader is doing, in words. Null while there is nothing more specific to say than "Reading…". */
 function progressText(t: ReturnType<typeof useApp>["t"], progress: OcrProgress | undefined): string {
@@ -108,6 +111,62 @@ export function SourceQuestion({
     if (mine === run.current) onState(next);
   };
 
+  // A file can be dropped instead of picked. The whole page takes it, not only the box: a file let go
+  // of beside the box would otherwise be opened by the browser in place of the app.
+  const idle = state.phase === "idle";
+  const [dragging, setDragging] = useState(false);
+  const onDropped = useRef(read);
+  useEffect(() => {
+    onDropped.current = read;
+  });
+  useEffect(() => {
+    // dragenter and dragleave fire for every element the pointer crosses, so keep the ones it is over.
+    let over: EventTarget[] = [];
+    const show = () => setDragging(idle && over.length > 0);
+    const enter = (event: DragEvent) => {
+      if (!carriesFile(event) || !event.target) return;
+      over = [...over.filter((target) => target !== event.target), event.target];
+      show();
+    };
+    const leave = (event: DragEvent) => {
+      // An element removed while the pointer was over it never reports leaving, so drop those too.
+      over = over.filter((target) => target !== event.target && target instanceof Node && target.isConnected);
+      show();
+    };
+    const hold = (event: DragEvent) => {
+      if (!carriesFile(event) || !event.dataTransfer) return;
+      event.preventDefault(); // without this the browser refuses the drop
+      event.dataTransfer.dropEffect = idle ? "copy" : "none";
+    };
+    const drop = (event: DragEvent) => {
+      if (!carriesFile(event)) return;
+      event.preventDefault();
+      over = [];
+      show();
+      const file = event.dataTransfer?.files[0];
+      if (idle && file) void onDropped.current(file);
+    };
+    // The page gets no pointer events while something is dragged over it, so one arriving means the
+    // drag is over, even if the browser never said the file left.
+    const moved = () => {
+      if (!over.length) return;
+      over = [];
+      show();
+    };
+    window.addEventListener("dragenter", enter);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("dragover", hold);
+    window.addEventListener("drop", drop);
+    window.addEventListener("pointermove", moved);
+    return () => {
+      window.removeEventListener("dragenter", enter);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("dragover", hold);
+      window.removeEventListener("drop", drop);
+      window.removeEventListener("pointermove", moved);
+    };
+  }, [idle]);
+
   const answer = (choice: "file" | "type") => {
     const outcome = answerOpening("source", choice);
     if ("create" in outcome && outcome.create === "import") fileInput.current?.click();
@@ -186,7 +245,13 @@ export function SourceQuestion({
             </ErrorLine>
           )}
           <Choices labelledBy={heading} focus>
-            <Choice label={t("create.source.file")} detail={t("create.source.fileTypes")} onSelect={() => answer("file")} testId="create-source-file" />
+            <Choice
+              label={t(dragging ? "create.source.drop" : "create.source.file")}
+              detail={t("create.source.fileTypes")}
+              lit={dragging}
+              onSelect={() => answer("file")}
+              testId="create-source-file"
+            />
             {/* Sits right under the file choice on a phone, and under both choices when they are side by side. */}
             <p className="text-sm text-muted sm:order-last sm:col-span-2" data-testid="create-source-private">
               {t("create.source.private")}

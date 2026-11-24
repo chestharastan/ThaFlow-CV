@@ -171,6 +171,7 @@ export function Choice({
   label,
   detail,
   selected,
+  lit,
   autoFocus,
   disabled,
   lang,
@@ -182,6 +183,8 @@ export function Choice({
   detail?: string;
   /** Marks the current answer when the question already has one. */
   selected?: boolean;
+  /** Looks chosen without being the answer: the file choice while a file is held over the page. */
+  lit?: boolean;
   autoFocus?: boolean;
   disabled?: boolean;
   lang?: string;
@@ -200,7 +203,7 @@ export function Choice({
       data-testid={testId}
       className={cx(
         "flex min-h-16 w-full flex-col items-center justify-center rounded-xl border bg-paper px-5 py-3 text-center text-lg font-medium text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:text-faint disabled:hover:border-line-strong",
-        selected ? "border-ink ring-1 ring-ink" : "border-line-strong",
+        selected || lit ? "border-ink ring-1 ring-ink" : "border-line-strong",
         className,
       )}
     >

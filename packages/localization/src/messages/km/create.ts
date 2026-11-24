@@ -20,6 +20,7 @@ export const create: Partial<Record<keyof typeof en, string>> = {
   "create.source.question": "តើអ្នកចង់ប្រើ CV នោះដែរឬទេ?",
   "create.source.file": "ជ្រើសរើសឯកសារ",
   "create.source.fileTypes": "PDF, Word ឬរូបថត ឬឯកសារស្កេន",
+  "create.source.drop": "ទម្លាក់ឯកសារនៅទីនេះ",
   "create.source.type": "វាយបញ្ចូលដោយខ្លួនឯង",
   "create.source.private": "ឯកសាររបស់អ្នកត្រូវបានអាននៅលើឧបករណ៍នេះប៉ុណ្ណោះ មិនត្រូវបានបញ្ជូនទៅកន្លែងណាឡើយ។",
   "create.source.reading": "កំពុងអាន CV របស់អ្នក…",

@@ -19,6 +19,7 @@ export const create = {
   "create.source.question": "Would you like to start from it?",
   "create.source.file": "Choose a file",
   "create.source.fileTypes": "PDF, Word, or a photo or scan",
+  "create.source.drop": "Drop your file here",
   "create.source.type": "Type it instead",
   "create.source.private": "Your file is read on this device and never uploaded.",
   "create.source.reading": "Reading your CV…",

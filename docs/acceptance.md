@@ -8,6 +8,7 @@ Each row is checked by an automated test. `e2e` is `apps/web/e2e/smoke.mjs`, run
 | Every question is a URL; Back and reload lose nothing | e2e; `questionnaire.test.ts` (branching, next/previous) |
 | "Not yet" worked → projects are asked | e2e (phone run); `questionnaire.test.ts` |
 | An existing CV is read on the device | e2e: Word and PDF exported by the app are imported and pre-fill the answers, with zero network requests; `import.test.ts` |
+| A file can be dropped on the page instead of picked | e2e: the file choice says it takes the file while one is held over the page, a file let go of beside the box is read, and one dropped later is not opened by the browser |
 | A CV from another tool is read in the right order | `foreign.test.ts`: eight layouts (sidebars, narrow gutter, table, dates in a margin) all yield the same person, jobs, school, projects and skills; e2e imports one; `layout.test.ts` |
 | A photo, a scan or a Khmer PDF is read on the device | e2e with `THAFLOW_OCR_MODELS` set: a tilted phone photo, a scanned PDF and a Khmer PDF are imported; only the three model files are fetched, once; `ocr.test.ts` |
 | Files that are not a CV are refused with a reason | e2e; `import.test.ts` |

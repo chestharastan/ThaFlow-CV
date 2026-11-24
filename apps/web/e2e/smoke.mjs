@@ -249,6 +249,32 @@ try {
   await next();
   assert.match(await id("create-entry-list").innerText(), /Teaching Assistant[\s\S]*Student Ambassador/, "two columns: jobs not recognised");
 
+  // The same Word file dropped onto the page instead of picked. Anywhere on the page counts, not only the box.
+  await page.goto(`${origin}/create/`);
+  await id("create-start-yes").click();
+  await id("create-source-file").waitFor();
+  const held = await page.evaluateHandle(
+    ({ bytes, name, type }) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array(bytes)], name, { type }));
+      return transfer;
+    },
+    { bytes: [...(await readFile(docxPath))], name: "Sok-Dara.docx", type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+  );
+  const drag = (type, target = "main") => page.dispatchEvent(target, type, { dataTransfer: held });
+  await drag("dragenter");
+  assert.match(await id("create-source-file").textContent(), /Drop your file here/, "drop: the file choice does not say it takes the file");
+  await drag("dragleave");
+  assert.match(await id("create-source-file").textContent(), /Choose a file/, "drop: still lit after the file left the page");
+  await drag("dragenter");
+  assert.equal(await page.evaluate((transfer) => !document.querySelector("h1").dispatchEvent(new DragEvent("dragover", { dataTransfer: transfer, bubbles: true, cancelable: true })), held), true, "drop: the page does not accept a file");
+  await drag("drop", "h1");
+  await id("create-found").waitFor({ timeout: 30000 });
+  assert.match(await id("create-found-name").textContent(), /Sok Dara/, "drop: name not recognised");
+  // Once a file has been read, another one let go of on the page is neither read nor opened by the browser.
+  assert.equal(await page.evaluate((transfer) => !document.querySelector("h1").dispatchEvent(new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true })), held), true, "drop: a second file would replace the app");
+  assert.match(await id("create-found-name").textContent(), /Sok Dara/);
+
   await page.goto(`${origin}/create/`);
   await id("create-start-yes").click();
   await id("create-file-input").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
@@ -256,7 +282,7 @@ try {
   await id("create-source-type").click(); // has a CV but would rather type: same questions as a new person
   await id("create-language-en").waitFor();
   assert.deepEqual(external, [], "importing a file must not touch the network");
-  step("an existing CV (Word, PDF, and a two-column PDF from another tool) is read on the device; other files are refused");
+  step("an existing CV (Word, PDF, and a two-column PDF from another tool) is read on the device, picked or dropped; other files are refused");
 
   // --- Cloud AI needs an address and explicit consent ---
   await page.goto(`${origin}/settings/`);
